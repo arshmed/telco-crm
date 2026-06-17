@@ -16,10 +16,10 @@
 	<description>Sipariş orkestrasyonu</description>
 
 	<dependencies>
-		<dependency>
+		<depedency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+		</depedency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

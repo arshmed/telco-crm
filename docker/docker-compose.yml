@@ -1,0 +1,328 @@
+# ----------------------------------------------------------------------------
+# HOST PORT HARİTASI (kolay hatırlamak için: servis 90XX -> db 54XX)
+# ----------------------------------------------------------------------------
+#   identity-service      9001  ->  identity-db        localhost:5401  (db: identity)
+#   customer-service      9002  ->  customer-db        localhost:5402  (db: customer)
+#   product-catalog-svc   9003  ->  catalog-db         localhost:5403  (db: catalog)
+#   order-service         9004  ->  order-db           localhost:5404  (db: orders)
+#   subscription-service  9005  ->  subscription-db    localhost:5405  (db: subscription)
+#   usage-service         9006  ->  usage-db           localhost:5406  (db: usage)
+#   billing-service       9007  ->  billing-db         localhost:5407  (db: billing)
+#   payment-service       9008  ->  payment-db         localhost:5408  (db: payment)
+#   notification-service  9009  ->  notification-db    localhost:5409  (db: notification)
+#   ticket-service        9010  ->  ticket-db          localhost:5410  (db: ticket)
+#
+#   Kafka            localhost:9092
+#   Kafka UI         http://localhost:8090   (8080'i api-gateway'e bıraktık)
+#   Debezium Connect http://localhost:8083
+#   Redis            localhost:6379
+#   Zipkin           http://localhost:9411
+#   MinIO API        http://localhost:9000   Console: http://localhost:9090 (minioadmin/minioadmin)
+#   Keycloak         http://localhost:8085   (admin/admin)
+#   pgAdmin          http://localhost:5050   (admin@admin.com/admin)
+# =============================================================================
+
+x-postgres-common: &postgres-common
+  image: postgres:16
+  # Debezium CDC / Outbox pattern için logical replication açık olmalı
+  command: ["postgres", "-c", "wal_level=logical"]
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+  networks:
+    - telco-net
+
+services:
+  # ===========================================================================
+  # MESAJLAŞMA / EVENT BUS
+  # ===========================================================================
+  kafka:
+    image: apache/kafka:4.2.0
+    container_name: kafka
+    ports:
+      - "9092:9092"          # host -> broker (EXTERNAL listener)
+    environment:
+      # --- KRaft kimlik ve roller ---
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller        # tek node hem broker hem controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # --- Listener tanımları (INTERNAL container içi, EXTERNAL host, CONTROLLER) ---
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:19092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # --- Tek node => replikasyon faktörleri 1 ---
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+      # --- Geliştirme kolaylıkları ---
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"        # eğitimde pratik; prod'da false
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - telco-net
+
+  kafka-ui:
+    image: kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"                   # http://localhost:8090  (8080 -> api-gateway)
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - telco-net
+
+  # Outbox/CDC için: outbox tablolarını Kafka'ya taşımak istersen Debezium burada.
+  debezium-connect:
+    image: quay.io/debezium/connect:3.0
+    container_name: debezium-connect
+    ports:
+      - "8083:8083"                        # Connector REST API: http://localhost:8083
+    environment:
+      BOOTSTRAP_SERVERS: kafka:19092
+      GROUP_ID: debezium-connect-group
+      CONFIG_STORAGE_TOPIC: debezium-connect-configs
+      OFFSET_STORAGE_TOPIC: debezium-connect-offsets
+      STATUS_STORAGE_TOPIC: debezium-connect-status
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - telco-net
+
+  # ===========================================================================
+  # CACHE / IDEMPOTENCY / RATE-LIMIT  (Redis 7)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - telco-net
+
+  # ===========================================================================
+  # PER-SERVICE POSTGRES (database-per-service)
+  # ===========================================================================
+  identity-db:
+    <<: *postgres-common
+    container_name: identity-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: identity
+    ports:
+      - "5401:5432"
+    volumes:
+      - identity-db-data:/var/lib/postgresql/data
+
+  customer-db:
+    <<: *postgres-common
+    container_name: customer-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: customer
+    ports:
+      - "5402:5432"
+    volumes:
+      - customer-db-data:/var/lib/postgresql/data
+
+  catalog-db:
+    <<: *postgres-common
+    container_name: catalog-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: catalog
+    ports:
+      - "5403:5432"
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+
+  order-db:
+    <<: *postgres-common
+    container_name: order-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: orders          # "order" SQL'de reserved word -> "orders"
+    ports:
+      - "5404:5432"
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+
+  subscription-db:
+    <<: *postgres-common
+    container_name: subscription-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: subscription
+    ports:
+      - "5405:5432"
+    volumes:
+      - subscription-db-data:/var/lib/postgresql/data
+
+  usage-db:
+    <<: *postgres-common
+    container_name: usage-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: usage
+    ports:
+      - "5406:5432"
+    volumes:
+      - usage-db-data:/var/lib/postgresql/data
+
+  billing-db:
+    <<: *postgres-common
+    container_name: billing-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: billing
+    ports:
+      - "5407:5432"
+    volumes:
+      - billing-db-data:/var/lib/postgresql/data
+
+  payment-db:
+    <<: *postgres-common
+    container_name: payment-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: payment
+    ports:
+      - "5408:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+
+  notification-db:
+    <<: *postgres-common
+    container_name: notification-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: notification
+    ports:
+      - "5409:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+
+  ticket-db:
+    <<: *postgres-common
+    container_name: ticket-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test12345
+      POSTGRES_DB: ticket
+    ports:
+      - "5410:5432"
+    volumes:
+      - ticket-db-data:/var/lib/postgresql/data
+
+  # ===========================================================================
+  # KİMLİK SAĞLAYICI (OAuth2/OIDC) - dökümanda opsiyonel ileri seviye
+  # ===========================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8085:8080"
+    networks:
+      - telco-net
+
+  # ===========================================================================
+  # OBSERVABILITY - Distributed tracing (Zipkin)
+  # ===========================================================================
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - telco-net
+
+  # ===========================================================================
+  # OBJECT STORAGE - fatura PDF / belge depolama (billing-service)
+  # ===========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9090"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"     # S3 API
+      - "9090:9090"     # Web console
+    volumes:
+      - minio-data:/data
+    networks:
+      - telco-net
+
+  # ===========================================================================
+  # YÖNETİM ARAÇLARI
+  # ===========================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - telco-net
+
+# =============================================================================
+volumes:
+  kafka-data:
+  redis-data:
+  minio-data:
+  identity-db-data:
+  customer-db-data:
+  catalog-db-data:
+  order-db-data:
+  subscription-db-data:
+  usage-db-data:
+  billing-db-data:
+  payment-db-data:
+  notification-db-data:
+  ticket-db-data:
+
+networks:
+  telco-net:
+    driver: bridge

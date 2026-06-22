@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: git@github.com:arshmed/telco-crm.git
+          default-label: dev
+          search-paths: configs,configs/{application}
+          clone-on-start: true
+          force-pull: true
+
+server:
+  port: 8888
+

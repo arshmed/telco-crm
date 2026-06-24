@@ -5,7 +5,7 @@ spring:
     config:
       server:
         git:
-          uri: git@github.com:arshmed/telco-crm.git
+          uri: https://github.com/arshmed/telco-crm.git
           default-label: dev
           search-paths: configs,configs/{application}
           clone-on-start: true

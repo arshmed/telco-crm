@@ -264,7 +264,8 @@ services:
     networks:
       - telco-net
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      # repo kokundeki keyclock/ klasoru -> import dizini (icindeki *.json'lar otomatik import edilir)
+      - ../keyclock:/opt/keycloak/data/import
 
   # ===========================================================================
   # OBSERVABILITY - Distributed tracing (Zipkin)

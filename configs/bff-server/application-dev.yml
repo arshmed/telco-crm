@@ -5,12 +5,12 @@ spring:
                 registration:
                     keycloak:
                         client-id: bff-client
-                        client-secret: PAFoXr5KiwXNnqetjJwzr4MeIMNvbohc
+                        client-secret: {{KEYCLOAK_CLIENT_SECRET}}
                         authorization-grant-type: authorization_code
                         scope: openid, profile, email
                 provider:
                     keycloak:
-                        issuer-uri: http://localhost:8085/realms/microservices-gygy5
+                        issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
     cloud:
         gateway:
             server:

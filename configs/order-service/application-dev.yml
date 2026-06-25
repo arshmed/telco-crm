@@ -1,4 +1,9 @@
 spring:
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
     datasource:
         url: jdbc:postgresql://localhost:5404/orders
         username: postgres

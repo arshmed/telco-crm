@@ -3,8 +3,9 @@ package com.telcocrm.orderservice.entity;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -60,11 +62,11 @@ public class Order {
     @Builder.Default
     private boolean deleted = false;
 
-    @CreationTimestamp // Entity ilk kaydedildiğinde otomatik set edilir
+    @CreatedDate // Entity ilk kaydedildiğinde otomatik set edilir
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp // Her güncellemede otomatik set edilir
+    @LastModifiedDate // Her güncellemede otomatik set edilir
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 

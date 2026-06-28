@@ -28,6 +28,7 @@ public class OutboxEvent {
     @Column(columnDefinition = "TEXT")
     private String payload;
 
+    @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
     private int retryCount;

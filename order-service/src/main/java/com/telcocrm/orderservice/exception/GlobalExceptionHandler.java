@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -29,7 +30,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleBaseException(BaseException ex) {
         log.warn("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
-        problem.setType(URI.create("https://telcocrm.com/errors/" + ex.getErrorCode().toLowerCase().replace("_", "-")));
+        problem.setType(URI.create("https://telcocrm.com/errors/" + ex.getErrorCode().toLowerCase(Locale.ROOT).replace("_", "-")));
         problem.setTitle(ex.getErrorCode());
         problem.setProperty("errorCode", ex.getErrorCode());
         problem.setProperty("timestamp", Instant.now());

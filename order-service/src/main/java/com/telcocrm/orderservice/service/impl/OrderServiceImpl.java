@@ -10,11 +10,15 @@ import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
+import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
+import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
 import com.telcocrm.orderservice.exception.OrderNotCancellableException;
 import com.telcocrm.orderservice.exception.OrderNotFoundException;
 import com.telcocrm.orderservice.mapper.OrderMapper;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.service.OrderService;
+import com.telcocrm.orderservice.service.OutboxService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerClient customerClient;
     private final ProductCatalogClient productCatalogClient;
     private final OrderMapper orderMapper;
+    private final OutboxService outboxService;
 
     @Override
     @Transactional
@@ -88,9 +93,15 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
-        // todo: Kafka'ya OrderCreated eventi gönderilecek
-        // kafkaProducer.sendOrderCreatedEvent(order);
-
+        outboxService.saveEvent(
+                "ORDER",
+                order.getId().toString(),
+                "orderCreatedEvent",
+                OrderCreatedEvent.of(
+                        order.getId(),
+                        order.getCustomerId(),
+                        order.getTotalAmount(),
+                        order.getCurrency()));
         return orderMapper.toResponse(order);
     }
 
@@ -124,10 +135,18 @@ public class OrderServiceImpl implements OrderService {
         sagaState.setCurrentStep(SagaStep.FAILED);
         sagaState.setErrorMessage("Order cancelled by user: " + request.reason());
 
-        // todo: Kafka'ya OrderCancelled eventi gönder
-        // kafkaProducer.sendOrderCancelledEvent(order);
-
         orderRepository.save(order);
+
+        outboxService.saveEvent(
+                "ORDER",
+                order.getId().toString(),
+                "orderCancelledEvent",
+                OrderCancelledEvent.of(
+                        order.getId(),
+                        order.getCustomerId(),
+                        order.getCancellationReason()));
+
+        orderRepository.flush();
 
         return orderMapper.toResponse(order);
     }

@@ -92,9 +92,13 @@ services:
       - telco-net
 
   # Outbox/CDC için: outbox tablolarını Kafka'ya taşımak istersen Debezium burada.
+  # NOT: apache/kafka:4.2.0 imajı "kafka" kullanıcısı oluşturmadığı için
+  # user: root gerekiyor. Şimdilik polling-based outbox kullandığımız için
+  # bu servis MVP testlerinde gerekmez, ihtiyaç olunca açın.
   debezium-connect:
     image: quay.io/debezium/connect:3.0
     container_name: debezium-connect
+    user: root
     ports:
       - "8083:8083"                        # Connector REST API: http://localhost:8083
     environment:

@@ -19,6 +19,12 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: localhost:9092
+
 server:
   port: 9003
 
@@ -39,3 +45,6 @@ management:
   endpoint:
     health:
       show-details: always
+
+outbox:
+  poll-interval-ms: 5000

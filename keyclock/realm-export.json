@@ -85,6 +85,15 @@
         "clientRole": false,
         "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
         "attributes": {}
+      },
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "admin",
+        "description": "Telco CRM platform administrator",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
       }
     ],
     "client": {
@@ -762,6 +771,59 @@
           }
         }
       ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "organization",
+        "microprofile-jwt"
+      ]
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "clientId": "bff-client",
+      "name": "BFF Client",
+      "description": "Backend-for-Frontend client \u2014 Authorization Code Flow + TokenRelay",
+      "rootUrl": "http://localhost:8180",
+      "baseUrl": "/",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bff-client-secret",
+      "redirectUris": [
+        "http://localhost:8180/*",
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": false,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
       "defaultClientScopes": [
         "web-origins",
         "acr",
@@ -2409,5 +2471,29 @@
   },
   "clientPolicies": {
     "policies": []
-  }
+  },
+  "users": [
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "username": "testadmin",
+      "email": "testadmin@telcocrm.com",
+      "firstName": "Test",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test12345",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "default-roles-telcocrm-gygy5"
+      ],
+      "clientRoles": {},
+      "groups": []
+    }
+  ]
 }

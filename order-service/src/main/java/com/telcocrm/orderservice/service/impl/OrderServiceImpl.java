@@ -85,7 +85,7 @@ public class OrderServiceImpl implements OrderService {
         outboxService.saveEvent(
                 "ORDER",
                 order.getId().toString(),
-                "orderCreatedEvent",
+                "order-created-topic",
                 OrderCreatedEvent.of(
                         order.getId(),
                         order.getCustomerId(),
@@ -117,7 +117,7 @@ public class OrderServiceImpl implements OrderService {
         outboxService.saveEvent(
                 "ORDER",
                 order.getId().toString(),
-                "orderCancelledEvent",
+                "order-cancelled-topic",
                 OrderCancelledEvent.of(
                         order.getId(),
                         order.getCustomerId(),

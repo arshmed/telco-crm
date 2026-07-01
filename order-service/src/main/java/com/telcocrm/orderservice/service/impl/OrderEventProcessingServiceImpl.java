@@ -80,7 +80,7 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         outboxService.saveEvent(
             "ORDER",
             order.getId().toString(),
-            "orderCancelledEvent",
+            "order-cancelled-topic",
             OrderCancelledEvent.of(
                 order.getId(),
                 order.getCustomerId(),
@@ -116,7 +116,7 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         outboxService.saveEvent(
             "ORDER",
             order.getId().toString(),
-            "orderConfirmedEvent",
+            "order-confirmed-topic",
             OrderConfirmedEvent.of(
                 order.getId(),
                 order.getCustomerId(),

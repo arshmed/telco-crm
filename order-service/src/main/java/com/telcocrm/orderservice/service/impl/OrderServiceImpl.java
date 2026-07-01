@@ -2,6 +2,7 @@ package com.telcocrm.orderservice.service.impl;
 
 import com.telcocrm.orderservice.client.CustomerClient;
 import com.telcocrm.orderservice.client.ProductCatalogClient;
+import com.telcocrm.orderservice.client.dto.CustomerResponse;
 import com.telcocrm.orderservice.dto.request.CancelOrderRequest;
 import com.telcocrm.orderservice.dto.request.CreateOrderRequest;
 import com.telcocrm.orderservice.dto.response.OrderResponse;
@@ -46,13 +47,10 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
 
-        // todo: Müşteri kontrolü customer service hazır olunca açılacak
-
-        // CustomerResponse customer =
-        // customerClient.getCustomerById(request.customerId());
-        // if (!"ACTIVE".equals(customer.status())) {
-        // throw new IllegalStateException("Customer is not active");
-        // }
+        CustomerResponse customer = customerClient.getCustomerById(request.customerId());
+        if (!"ACTIVE".equals(customer.status())) {
+            throw new IllegalStateException("Customer " + request.customerId() + " is not active");
+        }
 
         // todo: Catalog kontrolü — product-catalog-service hazır olunca açılacak
         // ProductResponse product = productCatalogClient.getProductByCode(itemRequest.productCode());

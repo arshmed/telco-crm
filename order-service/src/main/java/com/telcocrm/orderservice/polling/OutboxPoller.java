@@ -18,7 +18,7 @@ import com.telcocrm.orderservice.repository.OutboxRepository;
 @Component
 public class OutboxPoller {
 
-    private static final int BATCH_SIZE = 10;
+    private static final int BATCH_SIZE = 100;
     private static final int MAX_RETRY_COUNT = 3;
 
     private final OutboxRepository outboxRepository;

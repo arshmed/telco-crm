@@ -12,10 +12,11 @@ import com.telcocrm.orderservice.entity.enums.OrderStatus;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
-import com.telcocrm.orderservice.exception.OrderNotCancellableException;
 import com.telcocrm.orderservice.exception.OrderNotFoundException;
 import com.telcocrm.orderservice.mapper.OrderMapper;
 import com.telcocrm.orderservice.repository.OrderRepository;
+import com.telcocrm.orderservice.rules.OrderPricingRules;
+import com.telcocrm.orderservice.rules.OrderStateRules;
 import com.telcocrm.orderservice.service.OrderService;
 import com.telcocrm.orderservice.service.OutboxService;
 
@@ -38,6 +39,8 @@ public class OrderServiceImpl implements OrderService {
     private final ProductCatalogClient productCatalogClient;
     private final OrderMapper orderMapper;
     private final OutboxService outboxService;
+    private final OrderPricingRules orderPricingRules;
+    private final OrderStateRules orderStateRules;
 
     @Override
     @Transactional
@@ -51,28 +54,14 @@ public class OrderServiceImpl implements OrderService {
         // throw new IllegalStateException("Customer is not active");
         // }
 
+        // todo: Catalog kontrolü — product-catalog-service hazır olunca açılacak
+        // ProductResponse product = productCatalogClient.getProductByCode(itemRequest.productCode());
+
         List<OrderItem> items = request.items().stream()
-                .map(itemRequest -> {
-
-                    // todo: Catalog kontrolü — product-catalog-service hazır olunca açılacak
-                    // ProductResponse product =
-                    // productCatalogClient.getProductByCode(itemRequest.productCode());
-
-                    // mock data
-                    return OrderItem.builder()
-                            .productCode(itemRequest.productCode())
-                            .productName("Mock Product")
-                            .productType(itemRequest.productType())
-                            .quantity(itemRequest.quantity())
-                            .unitPrice(BigDecimal.valueOf(100))
-                            .lineTotal(BigDecimal.valueOf(100).multiply(BigDecimal.valueOf(itemRequest.quantity())))
-                            .build();
-                })
+                .map(orderPricingRules::buildOrderItem)
                 .toList();
 
-        BigDecimal totalAmount = items.stream()
-                .map(OrderItem::getLineTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
         Order order = Order.builder()
                 .customerId(request.customerId())
@@ -121,19 +110,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndDeletedFalse(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            throw new OrderNotCancellableException(orderId, order.getStatus());
-        }
-
-        order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(request.reason());
-
-        SagaState sagaState = order.getSagaState();
-        if (sagaState == null) {
-            throw new IllegalStateException("Order with id: " + orderId + " has no associated saga state");
-        }
-        sagaState.setCurrentStep(SagaStep.FAILED);
-        sagaState.setErrorMessage("Order cancelled by user: " + request.reason());
+        orderStateRules.cancel(order, request.reason());
 
         orderRepository.save(order);
 

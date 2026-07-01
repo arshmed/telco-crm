@@ -13,17 +13,10 @@ spring:
         hibernate:
             ddl-auto: update
     cloud:
+        function:
+            definition: paymentCompletedEvent;paymentFailedEvent;subscriptionActivatedEvent
         stream:
             bindings:
-                orderCreatedEvent-out-0:
-                    destination: order-created-topic
-                    content-type: application/json
-                orderConfirmedEvent-out-0:
-                    destination: order-confirmed-topic
-                    content-type: application/json
-                orderCancelledEvent-out-0:
-                    destination: order-cancelled-topic
-                    content-type: application/json
                 paymentCompletedEvent-in-0:
                     destination: payment-completed-topic
                     content-type: application/json

@@ -2,12 +2,6 @@ server:
   port: 9002
 
 spring:
-  application:
-    name: customer-service
-
-  config:
-    import: "optional:configserver:"
-
   datasource:
     url: jdbc:postgresql://localhost:5402/customer
     username: postgres
@@ -30,19 +24,35 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
+          jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+
   cloud:
-    config:
-      enabled: true
+    stream:
+      bindings:
+        customerRegisteredEvent-out-0:
+          destination: customer-registered-topic
+          content-type: application/json
+        customerKYCApprovedEvent-out-0:
+          destination: customer-kyc-approved-topic
+          content-type: application/json
+        customerUpdatedEvent-out-0:
+          destination: customer-updated-topic
+          content-type: application/json
+      kafka:
+        binder:
+          brokers: localhost:9092
 
 eureka:
   client:
-    enabled: true
     service-url:
       defaultZone: http://localhost:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
-    healthcheck:
-      enabled: true
   instance:
     hostname: localhost
 
@@ -60,18 +70,3 @@ management:
   endpoint:
     health:
       show-details: always
-
----
-spring:
-  config:
-    activate:
-      on-profile: local
-  cloud:
-    config:
-      enabled: false
-    discovery:
-      enabled: false
-
-eureka:
-  client:
-    enabled: false

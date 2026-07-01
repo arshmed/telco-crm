@@ -2,7 +2,6 @@ package com.telcocrm.orderservice.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telcocrm.orderservice.entity.OutboxEvent;
-import com.telcocrm.orderservice.entity.enums.OutboxStatus;
 import com.telcocrm.orderservice.exception.OutboxPersistenceException;
 import com.telcocrm.orderservice.repository.OutboxRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +19,7 @@ public class OutboxService {
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
-    public void saveEvent(String aggregateType, String aggregateId, String eventType, Object event) {
+    public void saveEvent(String aggregateType, String aggregateId, String topic, Object event) {
         try {
             String payload = objectMapper.writeValueAsString(event);
 
@@ -28,18 +27,16 @@ public class OutboxService {
                     .id(UUID.randomUUID())
                     .aggregateType(aggregateType)
                     .aggregateId(aggregateId)
-                    .eventType(eventType)
+                    .topic(topic)
                     .payload(payload)
-                    .status(OutboxStatus.PENDING)
-                    .retryCount(0)
                     .createdAt(Instant.now())
                     .build();
 
             outboxRepository.save(outboxEvent);
 
         } catch (Exception e) {
-            log.error("Failed to save outbox event: {} for aggregateId: {}", eventType, aggregateId, e);
-            throw new OutboxPersistenceException(eventType, aggregateId, e);
+            log.error("Failed to save outbox event: {} for aggregateId: {}", topic, aggregateId, e);
+            throw new OutboxPersistenceException(topic, aggregateId, e);
         }
     }
 }

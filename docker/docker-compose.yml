@@ -17,6 +17,8 @@
 #   Debezium Connect http://localhost:8083
 #   Redis            localhost:6379
 #   Zipkin           http://localhost:9411
+#   Loki             http://localhost:3100
+#   Grafana          http://localhost:3000   (admin/admin)
 #   MinIO API        http://localhost:9000   Console: http://localhost:9090 (minioadmin/minioadmin)
 #   Keycloak         http://localhost:8085   (admin/admin)
 #   pgAdmin          http://localhost:5050   (admin@admin.com/admin)
@@ -283,6 +285,53 @@ services:
       - telco-net
 
   # ===========================================================================
+  # OBSERVABILITY - Merkezi loglama (Loki + Promtail) ve dashboard (Grafana)
+  # order-service host'ta çalışıp ECS formatlı JSON logunu
+  # order-service/logs/order-service.log dosyasına yazıyor; Promtail bu dosyayı
+  # bind mount ile okuyup Loki'ye gönderiyor.
+  # ===========================================================================
+  loki:
+    image: grafana/loki:3.2.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/config.yaml
+      - loki-data:/loki
+    networks:
+      - telco-net
+
+  promtail:
+    image: grafana/promtail:3.2.0
+    container_name: promtail
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./promtail/promtail-config.yaml:/etc/promtail/config.yaml
+      - ../order-service/logs:/var/log/telco-crm/order-service:ro
+    depends_on:
+      - loki
+    networks:
+      - telco-net
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+      - zipkin
+    networks:
+      - telco-net
+
+  # ===========================================================================
   # OBJECT STORAGE - fatura PDF / belge depolama (billing-service)
   # ===========================================================================
   minio:
@@ -319,6 +368,8 @@ volumes:
   kafka-data:
   redis-data:
   minio-data:
+  loki-data:
+  grafana-data:
   identity-db-data:
   customer-db-data:
   catalog-db-data:

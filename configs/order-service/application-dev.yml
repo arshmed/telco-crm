@@ -56,3 +56,11 @@ management:
     web:
       exposure:
         include: health, info, metrics, prometheus
+
+logging:
+    structured:
+        format:
+            console: ecs
+            file: ecs
+    file:
+        name: logs/order-service.log

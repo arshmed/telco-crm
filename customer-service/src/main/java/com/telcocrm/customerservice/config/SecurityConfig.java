@@ -3,7 +3,6 @@ package com.telcocrm.customerservice.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -32,24 +31,18 @@ import java.util.Map;
 @EnableScheduling
 public class SecurityConfig {
 
-    // -----------------------------------------------------------------------
-    // Production / staging: JWT validation via Keycloak
-    // -----------------------------------------------------------------------
-
     /**
      * Keycloak'a startup'ta bağlanmayı önler — ilk JWT geldiğinde JWKS endpoint'ini çağırır.
      * issuer-uri yerine jwk-set-uri kullanılıyor; issuer-uri OIDC discovery için startup'ta
      * Keycloak'a bağlanmaya çalışır ve Keycloak henüz hazır değilse başlatma hatası verir.
      */
     @Bean
-    @Profile("!local")
     public JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri) {
         return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
     }
 
     @Bean
-    @Profile("!local")
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
@@ -71,19 +64,6 @@ public class SecurityConfig {
                     .jwtAuthenticationConverter(keycloakJwtConverter())
                 )
             )
-            .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        return http.build();
-    }
-
-    // -----------------------------------------------------------------------
-    // Local dev: no auth required — run with -Dspring.profiles.active=local
-    // -----------------------------------------------------------------------
-    @Bean
-    @Profile("local")
-    public SecurityFilterChain localSecurityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         return http.build();

@@ -8,8 +8,10 @@ import com.telcocrm.productcatalogservice.entity.Tariff;
 import com.telcocrm.productcatalogservice.entity.enums.TariffStatus;
 import com.telcocrm.productcatalogservice.event.publish.TariffCreatedEvent;
 import com.telcocrm.productcatalogservice.event.publish.TariffPriceChangedEvent;
+import com.telcocrm.productcatalogservice.event.publish.TariffPublishedEvent;
 import com.telcocrm.productcatalogservice.exception.AddonNotFoundException;
 import com.telcocrm.productcatalogservice.exception.DuplicateCodeException;
+import com.telcocrm.productcatalogservice.exception.InvalidTariffStatusException;
 import com.telcocrm.productcatalogservice.exception.TariffNotFoundException;
 import com.telcocrm.productcatalogservice.mapper.AddonMapper;
 import com.telcocrm.productcatalogservice.mapper.TariffMapper;
@@ -64,6 +66,18 @@ public class TariffService {
                 TariffPriceChangedEvent.of(nextVersion.getId(), nextVersion.getCode(), nextVersion.getVersion(),
                         oldMonthlyFee, newMonthlyFee, nextVersion.getCurrency()));
         return tariffMapper.toResponse(nextVersion);
+    }
+
+    @Transactional
+    public TariffResponse publish(String code) {
+        Tariff tariff = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(code)
+                .orElseThrow(() -> new TariffNotFoundException(code));
+        if (tariff.getStatus() != TariffStatus.DRAFT) {
+            throw new InvalidTariffStatusException(code, tariff.getStatus());
+        }
+        tariff.setStatus(TariffStatus.ACTIVE);
+        outboxService.publish("Tariff", tariff.getId().toString(), "TariffPublished", TariffPublishedEvent.of(tariff));
+        return tariffMapper.toResponse(tariff);
     }
 
     @Transactional(readOnly = true)

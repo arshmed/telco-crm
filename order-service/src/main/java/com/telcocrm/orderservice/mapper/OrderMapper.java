@@ -4,7 +4,7 @@ import com.telcocrm.orderservice.dto.response.OrderResponse;
 import com.telcocrm.orderservice.entity.Order;
 import org.mapstruct.Mapper;
 
-@Mapper(componentModel = "spring", uses = OrderItemMapper.class)
+@Mapper(componentModel = "spring", uses = {OrderItemMapper.class, SagaStateMapper.class})
 public interface OrderMapper {
 
     OrderResponse toResponse(Order order);

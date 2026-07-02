@@ -2,6 +2,7 @@ package com.telcocrm.productcatalogservice.controller;
 
 import com.telcocrm.productcatalogservice.dto.request.TariffCreateRequest;
 import com.telcocrm.productcatalogservice.dto.request.TariffPriceChangeRequest;
+import com.telcocrm.productcatalogservice.dto.request.TariffUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.TariffResponse;
 import com.telcocrm.productcatalogservice.entity.enums.TariffStatus;
 import com.telcocrm.productcatalogservice.service.TariffService;
@@ -50,6 +51,12 @@ public class TariffController {
     @GetMapping("/{code}/versions/{version}")
     public TariffResponse getByCodeAndVersion(@PathVariable String code, @PathVariable Integer version) {
         return tariffService.getByCodeAndVersion(code, version);
+    }
+
+    @PutMapping("/{code}")
+    @PreAuthorize("hasAuthority('admin')")
+    public TariffResponse update(@PathVariable String code, @Valid @RequestBody TariffUpdateRequest request) {
+        return tariffService.update(code, request);
     }
 
     @PatchMapping("/{code}/price")

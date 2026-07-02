@@ -2,6 +2,7 @@ package com.telcocrm.productcatalogservice.dto.response;
 
 import com.telcocrm.productcatalogservice.entity.enums.AddonType;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,5 +17,5 @@ public record AddonResponse(
         Integer validityDays,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
-) {
+) implements Serializable {
 }

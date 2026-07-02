@@ -1,6 +1,7 @@
 package com.telcocrm.productcatalogservice.service;
 
 import com.telcocrm.productcatalogservice.dto.request.TariffCreateRequest;
+import com.telcocrm.productcatalogservice.dto.request.TariffUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.AddonResponse;
 import com.telcocrm.productcatalogservice.dto.response.TariffResponse;
 import com.telcocrm.productcatalogservice.entity.Addon;
@@ -9,6 +10,7 @@ import com.telcocrm.productcatalogservice.entity.enums.TariffStatus;
 import com.telcocrm.productcatalogservice.event.publish.TariffCreatedEvent;
 import com.telcocrm.productcatalogservice.event.publish.TariffPriceChangedEvent;
 import com.telcocrm.productcatalogservice.event.publish.TariffPublishedEvent;
+import com.telcocrm.productcatalogservice.event.publish.TariffUpdatedEvent;
 import com.telcocrm.productcatalogservice.exception.AddonNotFoundException;
 import com.telcocrm.productcatalogservice.exception.DuplicateCodeException;
 import com.telcocrm.productcatalogservice.exception.InvalidTariffStatusException;
@@ -18,6 +20,9 @@ import com.telcocrm.productcatalogservice.mapper.TariffMapper;
 import com.telcocrm.productcatalogservice.repository.AddonRepository;
 import com.telcocrm.productcatalogservice.repository.TariffRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -51,6 +56,10 @@ public class TariffService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "tariffs", key = "#code"),
+            @CacheEvict(cacheNames = "tariff-addons", key = "#code")
+    })
     public TariffResponse changePrice(String code, BigDecimal newMonthlyFee) {
         Tariff current = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(code)
                 .orElseThrow(() -> new TariffNotFoundException(code));
@@ -69,6 +78,33 @@ public class TariffService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "tariffs", key = "#code"),
+            @CacheEvict(cacheNames = "tariff-addons", key = "#code")
+    })
+    public TariffResponse update(String code, TariffUpdateRequest request) {
+        Tariff current = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(code)
+                .orElseThrow(() -> new TariffNotFoundException(code));
+        LocalDate today = LocalDate.now();
+
+        current.setCurrent(false);
+        current.setEffectiveTo(today);
+
+        Set<Addon> addons = request.addonCodes() == null
+                ? new HashSet<>(current.getAddons())
+                : resolveAddons(request.addonCodes());
+        Tariff nextVersion = tariffRepository.save(tariffMapper.newVersion(current, request, today, addons));
+
+        outboxService.publish("Tariff", nextVersion.getId().toString(), "TariffUpdated",
+                TariffUpdatedEvent.of(nextVersion));
+        return tariffMapper.toResponse(nextVersion);
+    }
+
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "tariffs", key = "#code"),
+            @CacheEvict(cacheNames = "tariff-addons", key = "#code")
+    })
     public TariffResponse publish(String code) {
         Tariff tariff = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(code)
                 .orElseThrow(() -> new TariffNotFoundException(code));
@@ -81,6 +117,7 @@ public class TariffService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tariffs", key = "#code")
     public TariffResponse getByCode(String code) {
         Tariff tariff = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(code)
                 .orElseThrow(() -> new TariffNotFoundException(code));
@@ -114,6 +151,7 @@ public class TariffService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "tariff-addons", key = "#tariffCode")
     public List<AddonResponse> getAddons(String tariffCode) {
         Tariff tariff = tariffRepository.findByCodeAndDeletedFalseAndCurrentTrue(tariffCode)
                 .orElseThrow(() -> new TariffNotFoundException(tariffCode));
@@ -123,6 +161,10 @@ public class TariffService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "tariffs", key = "#code"),
+            @CacheEvict(cacheNames = "tariff-addons", key = "#code")
+    })
     public void delete(String code) {
         List<Tariff> versions = tariffRepository.findByCodeAndDeletedFalseOrderByVersionDesc(code);
         if (versions.isEmpty()) {

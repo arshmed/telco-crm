@@ -4,6 +4,7 @@ import com.telcocrm.productcatalogservice.entity.enums.TariffSegment;
 import com.telcocrm.productcatalogservice.entity.enums.TariffStatus;
 import com.telcocrm.productcatalogservice.entity.enums.TariffType;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,5 +30,5 @@ public record TariffResponse(
         Set<AddonResponse> addons,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
-) {
+) implements Serializable {
 }

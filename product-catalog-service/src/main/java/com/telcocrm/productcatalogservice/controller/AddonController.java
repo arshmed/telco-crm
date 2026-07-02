@@ -1,6 +1,7 @@
 package com.telcocrm.productcatalogservice.controller;
 
 import com.telcocrm.productcatalogservice.dto.request.AddonCreateRequest;
+import com.telcocrm.productcatalogservice.dto.request.AddonUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.AddonResponse;
 import com.telcocrm.productcatalogservice.service.AddonService;
 import com.telcocrm.productcatalogservice.service.TariffService;
@@ -38,6 +39,12 @@ public class AddonController {
     @GetMapping("/{code}")
     public AddonResponse getByCode(@PathVariable String code) {
         return addonService.getByCode(code);
+    }
+
+    @PutMapping("/{code}")
+    @PreAuthorize("hasAuthority('admin')")
+    public AddonResponse update(@PathVariable String code, @Valid @RequestBody AddonUpdateRequest request) {
+        return addonService.update(code, request);
     }
 
     @DeleteMapping("/{code}")

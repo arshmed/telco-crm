@@ -58,6 +58,12 @@ public class TariffController {
         return tariffService.changePrice(code, request.monthlyFee());
     }
 
+    @PostMapping("/{code}/publish")
+    @PreAuthorize("hasRole('ADMIN')")
+    public TariffResponse publish(@PathVariable String code) {
+        return tariffService.publish(code);
+    }
+
     @DeleteMapping("/{code}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable String code) {

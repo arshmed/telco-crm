@@ -70,6 +70,11 @@ public class Order {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // Optimistic locking
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     // Bir siparişin birden fazla ürünü olabilir (tarife + addon gibi)
     // CascadeType.ALL → Order kaydedilince OrderItem'lar da kaydedilir
     // orphanRemoval → Order'dan çıkarılan item DB'den de silinir

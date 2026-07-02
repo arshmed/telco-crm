@@ -1,11 +1,13 @@
 package com.telcocrm.orderservice.exception;
 
+import feign.FeignException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,19 +27,18 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Bizim yazdığımız tüm custom exception'ları burası yakalar
     @ExceptionHandler(BaseException.class)
     public ResponseEntity<ProblemDetail> handleBaseException(BaseException ex) {
-        log.warn("Business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        String errorCode = ex.getErrorCode() != null ? ex.getErrorCode() : "UNKNOWN_ERROR";
+        log.warn("Business exception [{}]: {}", errorCode, ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
-        problem.setType(URI.create("https://telcocrm.com/errors/" + ex.getErrorCode().toLowerCase(Locale.ROOT).replace("_", "-")));
-        problem.setTitle(ex.getErrorCode());
-        problem.setProperty("errorCode", ex.getErrorCode());
+        problem.setType(URI.create("https://telcocrm.com/errors/" + errorCode.toLowerCase(Locale.ROOT).replace("_", "-")));
+        problem.setTitle(errorCode);
+        problem.setProperty("errorCode", errorCode);
         problem.setProperty("timestamp", Instant.now());
         return ResponseEntity.status(ex.getStatus()).body(problem);
     }
 
-    // @Valid annotation'ından gelen validation hatalarını yakalar
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidationException(MethodArgumentNotValidException ex) {
         Map<String, List<String>> errors = new LinkedHashMap<>();
@@ -58,7 +59,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
-    // @Validated ile path/query parametreleri üzerinde yapılan validasyon hatalarını yakalar
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ProblemDetail> handleConstraintViolationException(ConstraintViolationException ex) {
         List<String> errors = ex.getConstraintViolations().stream()
@@ -76,7 +76,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
-    // Path/query parametresi beklenen tipe çevrilemediğinde (örn. UUID formatı hatalı) yakalar
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ProblemDetail> handleTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         String message = "Parameter '" + ex.getName() + "' has invalid value: " + ex.getValue();
@@ -88,7 +87,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
-    // Bozuk/okunamayan request body (örn. geçersiz JSON) için yakalar
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetail> handleMessageNotReadableException(HttpMessageNotReadableException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed request body");
@@ -98,7 +96,40 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
-    // Beklenmedik tüm hatalar buraya düşer
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handleOptimisticLockingFailureException(ObjectOptimisticLockingFailureException ex) {
+        log.warn("Optimistic locking conflict: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Order was updated by another operation, please retry"
+        );
+        problem.setType(URI.create("https://telcocrm.com/errors/concurrent-update"));
+        problem.setTitle("CONCURRENT_UPDATE");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalStateException(IllegalStateException ex) {
+        log.warn("Illegal state: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setType(URI.create("https://telcocrm.com/errors/illegal-state"));
+        problem.setTitle("ILLEGAL_STATE");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ProblemDetail> handleFeignException(FeignException ex) {
+        log.error("Feign call failed: {}", ex.getMessage());
+        HttpStatus status = ex instanceof FeignException.NotFound ? HttpStatus.NOT_FOUND : HttpStatus.SERVICE_UNAVAILABLE;
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Upstream service call failed");
+        problem.setType(URI.create("https://telcocrm.com/errors/upstream-service-error"));
+        problem.setTitle("UPSTREAM_SERVICE_ERROR");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(status).body(problem);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGenericException(Exception ex) {
         log.error("Unexpected error occurred", ex);

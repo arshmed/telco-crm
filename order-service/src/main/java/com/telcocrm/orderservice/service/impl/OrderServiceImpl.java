@@ -121,8 +121,6 @@ public class OrderServiceImpl implements OrderService {
                         order.getCustomerId(),
                         order.getCancellationReason()));
 
-        orderRepository.flush();
-
         return orderMapper.toResponse(order);
     }
 }

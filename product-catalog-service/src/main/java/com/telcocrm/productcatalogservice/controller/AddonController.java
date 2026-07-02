@@ -22,7 +22,7 @@ public class AddonController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<AddonResponse> create(@Valid @RequestBody AddonCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(addonService.create(request));
     }
@@ -41,7 +41,7 @@ public class AddonController {
     }
 
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         addonService.delete(code);
         return ResponseEntity.noContent().build();

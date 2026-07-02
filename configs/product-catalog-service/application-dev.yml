@@ -25,6 +25,13 @@ spring:
         binder:
           brokers: localhost:9092
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
+          jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+
 server:
   port: 9003
 

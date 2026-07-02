@@ -25,7 +25,7 @@ public class TariffController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<TariffResponse> create(@Valid @RequestBody TariffCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tariffService.create(request));
     }
@@ -53,19 +53,19 @@ public class TariffController {
     }
 
     @PatchMapping("/{code}/price")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public TariffResponse changePrice(@PathVariable String code, @Valid @RequestBody TariffPriceChangeRequest request) {
         return tariffService.changePrice(code, request.monthlyFee());
     }
 
     @PostMapping("/{code}/publish")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public TariffResponse publish(@PathVariable String code) {
         return tariffService.publish(code);
     }
 
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         tariffService.delete(code);
         return ResponseEntity.noContent().build();

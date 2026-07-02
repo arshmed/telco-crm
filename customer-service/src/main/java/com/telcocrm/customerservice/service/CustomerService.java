@@ -11,7 +11,6 @@ import com.telcocrm.customerservice.event.CustomerUpdatedEvent;
 import com.telcocrm.customerservice.exception.DuplicateResourceException;
 import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
-import com.telcocrm.customerservice.repository.AddressRepository;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final AddressRepository addressRepository;
     private final DocumentRepository documentRepository;
     private final CustomerMapper customerMapper;
     private final OutboxService outboxService;
@@ -59,7 +57,7 @@ public class CustomerService {
         outboxService.saveEvent(
             "CUSTOMER",
             saved.getId().toString(),
-            "customerRegisteredEvent",
+            "customer-registered-topic",
             CustomerRegisteredEvent.of(
                 saved.getId(),
                 saved.getType(),
@@ -102,7 +100,7 @@ public class CustomerService {
                         address.setCustomer(customer);
                         return address;
                     })
-                    .collect(Collectors.toList());
+                    .toList();
             customer.getAddresses().addAll(addresses);
         }
 
@@ -111,7 +109,7 @@ public class CustomerService {
         outboxService.saveEvent(
             "CUSTOMER",
             saved.getId().toString(),
-            "customerUpdatedEvent",
+            "customer-updated-topic",
             CustomerUpdatedEvent.of(
                 saved.getId(),
                 saved.getFirstName(),
@@ -163,7 +161,7 @@ public class CustomerService {
         outboxService.saveEvent(
             "CUSTOMER",
             saved.getId().toString(),
-            "customerKYCApprovedEvent",
+            "customer-kyc-approved-topic",
             CustomerKYCApprovedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName())
         );
 

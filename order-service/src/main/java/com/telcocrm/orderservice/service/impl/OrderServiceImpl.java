@@ -25,6 +25,8 @@ import com.telcocrm.orderservice.service.OutboxService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,6 +118,16 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listOrders(UUID customerId, Pageable pageable) {
+        Page<Order> orders = (customerId != null)
+                ? orderRepository.findByCustomerIdAndDeletedFalse(customerId, pageable)
+                : orderRepository.findByDeletedFalse(pageable);
+
+        return orders.map(orderMapper::toResponse);
     }
 
     @Override

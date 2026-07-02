@@ -5,6 +5,7 @@ import com.telcocrm.orderservice.entity.ProcessedEvent;
 import com.telcocrm.orderservice.event.consume.PaymentCompletedEvent;
 import com.telcocrm.orderservice.event.consume.PaymentFailedEvent;
 import com.telcocrm.orderservice.event.consume.SubscriptionActivatedEvent;
+import com.telcocrm.orderservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderConfirmedEvent;
 import com.telcocrm.orderservice.exception.InvalidOrderStateException;
@@ -127,6 +128,39 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         markProcessed(event.eventId());
 
         log.info("SubscriptionActivated processed for orderId: {}", event.orderId());
+    }
+
+    @Override
+    @Transactional
+    public void processSubscriptionActivationFailed(SubscriptionActivationFailedEvent event) {
+        if (processedEventRepository.existsByEventId(event.eventId())) {
+            log.warn("SubscriptionActivationFailedEvent already processed: {}", event.eventId());
+            return;
+        }
+
+        Order order = orderRepository.findByIdAndDeletedFalse(event.orderId())
+                .orElseThrow(() -> new OrderNotFoundException(event.orderId()));
+
+        String message = "Subscription activation failed: " + event.reason();
+        orderStateRules.markSubscriptionActivationFailed(order, message);
+
+        orderRepository.save(order);
+
+        outboxService.saveEvent(
+            "ORDER",
+            order.getId().toString(),
+            "order-cancelled-topic",
+            OrderCancelledEvent.of(
+                order.getId(),
+                order.getCustomerId(),
+                message
+            )
+        );
+        // TODO: payment-service refund event'i eklenecek, PaymentRefunded gelince SagaState FAILED yapılacak
+
+        markProcessed(event.eventId());
+
+        log.info("SubscriptionActivationFailed processed for orderId: {}", event.orderId());
     }
 
     private void markProcessed(UUID eventId) {

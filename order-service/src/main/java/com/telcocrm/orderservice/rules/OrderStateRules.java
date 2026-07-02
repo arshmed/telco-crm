@@ -55,6 +55,12 @@ public class OrderStateRules {
         requireSagaState(order).setCurrentStep(SagaStep.COMPLETED);
     }
 
+    public void markSubscriptionActivationFailed(Order order, String errorMessage) {
+        SagaState sagaState = requireSagaState(order);
+        sagaState.setCurrentStep(SagaStep.COMPENSATING);
+        sagaState.setErrorMessage(errorMessage);
+    }
+
     private void requireStatus(Order order, OrderStatus expected) {
         if (order.getStatus() != expected) {
             throw new InvalidOrderStateException(order.getId(), order.getStatus(), expected);

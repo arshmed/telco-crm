@@ -17,6 +17,7 @@ public record OrderResponse(
         UUID subscriptionId,
         String cancellationReason,
         List<OrderItemResponse> items,
+        SagaStateResponse sagaState,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

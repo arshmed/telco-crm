@@ -5,7 +5,9 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import com.telcocrm.orderservice.client.dto.CustomerResponse;
+import com.telcocrm.orderservice.exception.CustomerNotFoundException;
 import com.telcocrm.orderservice.exception.ServiceUnavailableException;
+import feign.FeignException;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 
@@ -17,6 +19,9 @@ public interface CustomerClient {
     CustomerResponse getCustomerById(@PathVariable UUID id);
 
     default CustomerResponse getCustomerByIdFallback(UUID id, Throwable throwable) {
+        if (throwable instanceof FeignException.NotFound) {
+            throw new CustomerNotFoundException(id);
+        }
         throw new ServiceUnavailableException("Customer service", "CUSTOMER_SERVICE_UNAVAILABLE", throwable);
     }
 

@@ -18,12 +18,13 @@ public class OrderStateRules {
             throw new OrderNotCancellableException(order.getId(), order.getStatus());
         }
 
+        String message = "Order cancelled by user: " + reason;
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(reason);
+        order.setCancellationReason(message);
 
         SagaState sagaState = requireSagaState(order);
         sagaState.setCurrentStep(SagaStep.FAILED);
-        sagaState.setErrorMessage("Order cancelled by user: " + reason);
+        sagaState.setErrorMessage(message);
     }
 
     public void markPaymentCompleted(Order order, UUID paymentId) {
@@ -52,6 +53,12 @@ public class OrderStateRules {
         order.setStatus(OrderStatus.FULFILLED);
         order.setSubscriptionId(subscriptionId);
         requireSagaState(order).setCurrentStep(SagaStep.COMPLETED);
+    }
+
+    public void markSubscriptionActivationFailed(Order order, String errorMessage) {
+        SagaState sagaState = requireSagaState(order);
+        sagaState.setCurrentStep(SagaStep.COMPENSATING);
+        sagaState.setErrorMessage(errorMessage);
     }
 
     private void requireStatus(Order order, OrderStatus expected) {

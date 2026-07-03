@@ -1,6 +1,5 @@
 package com.telcocrm.customerservice.entity;
 
-import com.telcocrm.customerservice.enums.OutboxStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,20 +19,13 @@ public class OutboxEvent {
     private UUID id;
 
     private String aggregateType;
+
     private String aggregateId;
-    private String eventType;
+
+    private String topic;
 
     @Column(columnDefinition = "TEXT")
     private String payload;
 
-    @Column(columnDefinition = "TEXT")
-    private String errorMessage;
-
-    private int retryCount;
-
     private Instant createdAt;
-    private Instant processedAt;
-
-    @Enumerated(EnumType.STRING)
-    private OutboxStatus status;
 }

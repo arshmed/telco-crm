@@ -1,11 +1,12 @@
 package com.telcocrm.customerservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telcocrm.customerservice.entity.OutboxEvent;
-import com.telcocrm.customerservice.enums.OutboxStatus;
 import com.telcocrm.customerservice.repository.OutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -19,23 +20,29 @@ public class OutboxService {
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
-    public void saveEvent(String aggregateType, String aggregateId, String eventType, Object payload) {
+    public void saveEvent(String aggregateType, String aggregateId, String topic, Object event) {
+        String payload;
         try {
-            String json = objectMapper.writeValueAsString(payload);
-            OutboxEvent event = OutboxEvent.builder()
+            payload = objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize outbox event: {} for aggregateId: {}", topic, aggregateId, e);
+            throw new RuntimeException("Outbox persistence failed for event: " + topic, e);
+        }
+
+        OutboxEvent outboxEvent = OutboxEvent.builder()
                 .id(UUID.randomUUID())
                 .aggregateType(aggregateType)
                 .aggregateId(aggregateId)
-                .eventType(eventType)
-                .payload(json)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
+                .topic(topic)
+                .payload(payload)
                 .createdAt(Instant.now())
                 .build();
-            outboxRepository.save(event);
-        } catch (Exception e) {
-            log.error("Failed to persist outbox event {} for aggregateId {}", eventType, aggregateId, e);
-            throw new RuntimeException("Outbox persistence failed for event: " + eventType, e);
+
+        try {
+            outboxRepository.save(outboxEvent);
+        } catch (DataAccessException e) {
+            log.error("Failed to persist outbox event: {} for aggregateId: {}", topic, aggregateId, e);
+            throw new RuntimeException("Outbox persistence failed for event: " + topic, e);
         }
     }
 }

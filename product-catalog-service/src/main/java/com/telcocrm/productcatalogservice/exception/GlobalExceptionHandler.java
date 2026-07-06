@@ -2,6 +2,7 @@ package com.telcocrm.productcatalogservice.exception;
 
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +32,7 @@ public class GlobalExceptionHandler {
         problem.setType(URI.create("https://telcocrm.com/errors/" + ex.getErrorCode().toLowerCase().replace("_", "-")));
         problem.setTitle(ex.getErrorCode());
         problem.setProperty("errorCode", ex.getErrorCode());
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.status(ex.getStatus()).body(problem);
     }
 
@@ -48,7 +49,7 @@ public class GlobalExceptionHandler {
         problem.setType(URI.create("https://telcocrm.com/errors/validation-error"));
         problem.setTitle("VALIDATION_ERROR");
         problem.setProperty("errors", errors);
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.badRequest().body(problem);
     }
 
@@ -62,7 +63,7 @@ public class GlobalExceptionHandler {
         problem.setType(URI.create("https://telcocrm.com/errors/validation-error"));
         problem.setTitle("VALIDATION_ERROR");
         problem.setProperty("errors", errors);
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.badRequest().body(problem);
     }
 
@@ -73,7 +74,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
         problem.setType(URI.create("https://telcocrm.com/errors/invalid-parameter"));
         problem.setTitle("INVALID_PARAMETER");
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.badRequest().body(problem);
     }
 
@@ -82,7 +83,7 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed request body");
         problem.setType(URI.create("https://telcocrm.com/errors/malformed-request"));
         problem.setTitle("MALFORMED_REQUEST");
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.badRequest().body(problem);
     }
 
@@ -92,7 +93,15 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error occurred");
         problem.setType(URI.create("https://telcocrm.com/errors/internal-server-error"));
         problem.setTitle("INTERNAL_SERVER_ERROR");
-        problem.setProperty("timestamp", Instant.now());
+        addCommonProperties(problem);
         return ResponseEntity.internalServerError().body(problem);
+    }
+
+    private void addCommonProperties(ProblemDetail problem) {
+        problem.setProperty("timestamp", Instant.now());
+        String correlationId = MDC.get("correlationId");
+        if (correlationId != null) {
+            problem.setProperty("correlationId", correlationId);
+        }
     }
 }

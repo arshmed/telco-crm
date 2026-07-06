@@ -1,6 +1,7 @@
 package com.telcocrm.productcatalogservice.mapper;
 
 import com.telcocrm.productcatalogservice.dto.request.TariffCreateRequest;
+import com.telcocrm.productcatalogservice.dto.request.TariffUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.AddonResponse;
 import com.telcocrm.productcatalogservice.dto.response.TariffResponse;
 import com.telcocrm.productcatalogservice.entity.Addon;
@@ -42,22 +43,35 @@ public class TariffMapper {
     }
 
     public Tariff newVersion(Tariff current, BigDecimal newMonthlyFee, LocalDate effectiveFrom) {
+        TariffUpdateRequest priceOnly = new TariffUpdateRequest(
+                current.getName(),
+                current.getSegment(),
+                newMonthlyFee,
+                current.getCurrency(),
+                current.getMinutesIncluded(),
+                current.getSmsIncluded(),
+                current.getDataMbIncluded(),
+                null);
+        return newVersion(current, priceOnly, effectiveFrom, new HashSet<>(current.getAddons()));
+    }
+
+    public Tariff newVersion(Tariff current, TariffUpdateRequest request, LocalDate effectiveFrom, Set<Addon> addons) {
         return Tariff.builder()
                 .code(current.getCode())
                 .version(current.getVersion() + 1)
                 .current(true)
-                .name(current.getName())
+                .name(request.name())
                 .type(current.getType())
-                .segment(current.getSegment())
-                .monthlyFee(newMonthlyFee)
-                .currency(current.getCurrency())
-                .minutesIncluded(current.getMinutesIncluded())
-                .smsIncluded(current.getSmsIncluded())
-                .dataMbIncluded(current.getDataMbIncluded())
+                .segment(request.segment())
+                .monthlyFee(request.monthlyFee())
+                .currency(request.currency() != null ? request.currency() : current.getCurrency())
+                .minutesIncluded(request.minutesIncluded())
+                .smsIncluded(request.smsIncluded())
+                .dataMbIncluded(request.dataMbIncluded())
                 .status(current.getStatus())
                 .effectiveFrom(effectiveFrom)
                 .effectiveTo(null)
-                .addons(new HashSet<>(current.getAddons()))
+                .addons(new HashSet<>(addons))
                 .build();
     }
 

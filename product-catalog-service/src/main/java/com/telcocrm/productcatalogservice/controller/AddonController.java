@@ -1,6 +1,7 @@
 package com.telcocrm.productcatalogservice.controller;
 
 import com.telcocrm.productcatalogservice.dto.request.AddonCreateRequest;
+import com.telcocrm.productcatalogservice.dto.request.AddonUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.AddonResponse;
 import com.telcocrm.productcatalogservice.service.AddonService;
 import com.telcocrm.productcatalogservice.service.TariffService;
@@ -22,7 +23,7 @@ public class AddonController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<AddonResponse> create(@Valid @RequestBody AddonCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(addonService.create(request));
     }
@@ -40,8 +41,14 @@ public class AddonController {
         return addonService.getByCode(code);
     }
 
+    @PutMapping("/{code}")
+    @PreAuthorize("hasAuthority('admin')")
+    public AddonResponse update(@PathVariable String code, @Valid @RequestBody AddonUpdateRequest request) {
+        return addonService.update(code, request);
+    }
+
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         addonService.delete(code);
         return ResponseEntity.noContent().build();

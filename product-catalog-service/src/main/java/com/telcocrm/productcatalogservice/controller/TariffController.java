@@ -2,6 +2,7 @@ package com.telcocrm.productcatalogservice.controller;
 
 import com.telcocrm.productcatalogservice.dto.request.TariffCreateRequest;
 import com.telcocrm.productcatalogservice.dto.request.TariffPriceChangeRequest;
+import com.telcocrm.productcatalogservice.dto.request.TariffUpdateRequest;
 import com.telcocrm.productcatalogservice.dto.response.TariffResponse;
 import com.telcocrm.productcatalogservice.entity.enums.TariffStatus;
 import com.telcocrm.productcatalogservice.service.TariffService;
@@ -25,7 +26,7 @@ public class TariffController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<TariffResponse> create(@Valid @RequestBody TariffCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tariffService.create(request));
     }
@@ -52,20 +53,26 @@ public class TariffController {
         return tariffService.getByCodeAndVersion(code, version);
     }
 
+    @PutMapping("/{code}")
+    @PreAuthorize("hasAuthority('admin')")
+    public TariffResponse update(@PathVariable String code, @Valid @RequestBody TariffUpdateRequest request) {
+        return tariffService.update(code, request);
+    }
+
     @PatchMapping("/{code}/price")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public TariffResponse changePrice(@PathVariable String code, @Valid @RequestBody TariffPriceChangeRequest request) {
         return tariffService.changePrice(code, request.monthlyFee());
     }
 
     @PostMapping("/{code}/publish")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public TariffResponse publish(@PathVariable String code) {
         return tariffService.publish(code);
     }
 
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         tariffService.delete(code);
         return ResponseEntity.noContent().build();

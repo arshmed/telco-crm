@@ -6,6 +6,10 @@ import com.telcocrm.orderservice.dto.response.OrderResponse;
 import com.telcocrm.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +27,13 @@ public class OrderController {
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         OrderResponse response = orderService.createOrder(request);
         return ResponseEntity.created(URI.create("/api/v1/orders/" + response.id())).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<OrderResponse>> listOrders(
+            @RequestParam(required = false) UUID customerId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.listOrders(customerId, pageable));
     }
 
     @GetMapping("/{orderId}")

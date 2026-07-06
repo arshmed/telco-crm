@@ -2,8 +2,11 @@ package com.telcocrm.orderservice.service.impl;
 
 import com.telcocrm.orderservice.client.CustomerClient;
 import com.telcocrm.orderservice.client.ProductCatalogClient;
+import com.telcocrm.orderservice.client.dto.CustomerResponse;
+import com.telcocrm.orderservice.client.dto.ProductResponse;
 import com.telcocrm.orderservice.dto.request.CancelOrderRequest;
 import com.telcocrm.orderservice.dto.request.CreateOrderRequest;
+import com.telcocrm.orderservice.dto.request.OrderItemRequest;
 import com.telcocrm.orderservice.dto.response.OrderResponse;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
@@ -22,10 +25,13 @@ import com.telcocrm.orderservice.service.OutboxService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +39,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
+
+    private static final String ACTIVE_STATUS = "ACTIVE";
 
     private final OrderRepository orderRepository;
     private final CustomerClient customerClient;
@@ -46,20 +54,29 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
 
-        // todo: Müşteri kontrolü customer service hazır olunca açılacak
+        CustomerResponse customer = customerClient.getCustomerById(request.customerId());
+        if (!ACTIVE_STATUS.equals(customer.status())) {
+            throw new IllegalStateException("Customer " + request.customerId() + " is not active");
+        }
 
-        // CustomerResponse customer =
-        // customerClient.getCustomerById(request.customerId());
-        // if (!"ACTIVE".equals(customer.status())) {
-        // throw new IllegalStateException("Customer is not active");
-        // }
+        List<OrderItem> items = new ArrayList<>();
+        String currency = null;
 
-        // todo: Catalog kontrolü — product-catalog-service hazır olunca açılacak
-        // ProductResponse product = productCatalogClient.getProductByCode(itemRequest.productCode());
+        for (OrderItemRequest itemRequest : request.items()) {
+            ProductResponse product = productCatalogClient.getProductByCode(itemRequest.productType(), itemRequest.productCode());
 
-        List<OrderItem> items = request.items().stream()
-                .map(orderPricingRules::buildOrderItem)
-                .toList();
+            if (product.status() != null && !ACTIVE_STATUS.equals(product.status())) {
+                throw new IllegalStateException("Product " + itemRequest.productCode() + " is not active");
+            }
+
+            if (currency == null) {
+                currency = product.currency();
+            } else if (!currency.equals(product.currency())) {
+                throw new IllegalStateException("Order items have mixed currencies");
+            }
+
+            items.add(orderPricingRules.buildOrderItem(itemRequest, product));
+        }
 
         BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
@@ -67,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
                 .customerId(request.customerId())
                 .status(OrderStatus.PENDING_PAYMENT)
                 .totalAmount(totalAmount)
-                .currency("TRY")
+                .currency(currency)
                 .build();
 
         items.forEach(item -> item.setOrder(order));
@@ -104,6 +121,16 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listOrders(UUID customerId, Pageable pageable) {
+        Page<Order> orders = (customerId != null)
+                ? orderRepository.findByCustomerIdAndDeletedFalse(customerId, pageable)
+                : orderRepository.findByDeletedFalse(pageable);
+
+        return orders.map(orderMapper::toResponse);
+    }
+
+    @Override
     @Transactional
     public OrderResponse cancelOrder(UUID orderId, CancelOrderRequest request) {
 
@@ -122,8 +149,6 @@ public class OrderServiceImpl implements OrderService {
                         order.getId(),
                         order.getCustomerId(),
                         order.getCancellationReason()));
-
-        orderRepository.flush();
 
         return orderMapper.toResponse(order);
     }

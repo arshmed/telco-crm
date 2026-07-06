@@ -1,5 +1,6 @@
 package com.telcocrm.orderservice.rules;
 
+import com.telcocrm.orderservice.client.dto.ProductResponse;
 import com.telcocrm.orderservice.dto.request.OrderItemRequest;
 import com.telcocrm.orderservice.entity.OrderItem;
 import org.springframework.stereotype.Component;
@@ -9,18 +10,16 @@ import java.util.List;
 @Component
 public class OrderPricingRules {
 
-    // todo: product-catalog-service hazır olunca gerçek fiyatlandırmaya bağlanacak
-    private static final BigDecimal MOCK_UNIT_PRICE = BigDecimal.valueOf(100);
-
-    public OrderItem buildOrderItem(OrderItemRequest request) {
-        BigDecimal lineTotal = MOCK_UNIT_PRICE.multiply(BigDecimal.valueOf(request.quantity()));
+    public OrderItem buildOrderItem(OrderItemRequest request, ProductResponse product) {
+        BigDecimal unitPrice = product.price();
+        BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(request.quantity()));
 
         return OrderItem.builder()
                 .productCode(request.productCode())
-                .productName("Mock Product")
+                .productName(product.name())
                 .productType(request.productType())
                 .quantity(request.quantity())
-                .unitPrice(MOCK_UNIT_PRICE)
+                .unitPrice(unitPrice)
                 .lineTotal(lineTotal)
                 .build();
     }

@@ -25,6 +25,8 @@ public class CustomerResponse {
     private String email;
     private String phone;
     private CustomerStatus status;
+    private String companyName;
+    private String taxOffice;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<AddressResponse> addresses;

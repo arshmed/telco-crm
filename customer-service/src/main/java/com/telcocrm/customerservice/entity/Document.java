@@ -1,5 +1,6 @@
 package com.telcocrm.customerservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.telcocrm.customerservice.enums.DocumentType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,6 +22,7 @@ public class Document {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
+    @JsonIgnore
     private Customer customer;
 
     @Enumerated(EnumType.STRING)

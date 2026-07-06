@@ -1,5 +1,6 @@
 package com.telcocrm.customerservice.service;
 
+import com.telcocrm.customerservice.config.CustomerAuditListener;
 import com.telcocrm.customerservice.dto.*;
 import com.telcocrm.customerservice.entity.Address;
 import com.telcocrm.customerservice.entity.Customer;
@@ -13,7 +14,10 @@ import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +28,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomerService {
@@ -32,7 +37,10 @@ public class CustomerService {
     private final DocumentRepository documentRepository;
     private final CustomerMapper customerMapper;
     private final OutboxService outboxService;
+    private final CustomerAuditListener auditListener;
 
+    @Retry(name = "customerService")
+    @CircuitBreaker(name = "customerService")
     @Transactional
     public CustomerResponse createCustomer(CustomerRequest request) {
         if (customerRepository.existsByIdentityNumber(request.getIdentityNumber())) {
@@ -67,6 +75,8 @@ public class CustomerService {
             )
         );
 
+        auditListener.logCreate("Customer", saved.getId().toString(), saved);
+
         return customerMapper.toResponse(saved);
     }
 
@@ -81,6 +91,8 @@ public class CustomerService {
         return customerMapper.toResponse(findCustomerById(id));
     }
 
+    @Retry(name = "customerService")
+    @CircuitBreaker(name = "customerService")
     @Transactional
     public CustomerResponse updateCustomer(UUID id, CustomerRequest request) {
         Customer customer = findCustomerById(id);
@@ -119,6 +131,8 @@ public class CustomerService {
             )
         );
 
+        auditListener.logUpdate("Customer", saved.getId().toString(), customer, saved);
+
         return customerMapper.toResponse(saved);
     }
 
@@ -127,6 +141,7 @@ public class CustomerService {
         Customer customer = findCustomerById(id);
         customer.setDeletedAt(LocalDateTime.now());
         customerRepository.save(customer);
+        auditListener.logDelete("Customer", customer.getId().toString(), customer);
     }
 
     @Transactional
@@ -142,6 +157,8 @@ public class CustomerService {
         return customerMapper.toDocumentResponse(saved);
     }
 
+    @Retry(name = "customerService")
+    @CircuitBreaker(name = "customerService")
     @Transactional
     public CustomerResponse approveKyc(UUID id) {
         Customer customer = findCustomerById(id);

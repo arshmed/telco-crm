@@ -28,6 +28,7 @@ public class CustomerRequest {
 
     @NotBlank
     @Size(max = 20)
+    @Pattern(regexp = "^[0-9]{10,11}$", message = "identityNumber must be 10 (VKN) or 11 (TCKN) digits")
     private String identityNumber;
 
     @NotNull
@@ -40,6 +41,12 @@ public class CustomerRequest {
 
     @Size(max = 20)
     private String phone;
+
+    @Size(max = 255)
+    private String companyName;
+
+    @Size(max = 100)
+    private String taxOffice;
 
     @Valid
     private List<AddressRequest> addresses;

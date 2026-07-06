@@ -107,7 +107,7 @@ class CustomerServiceTest {
         var customer = validCustomer();
         var response = validResponse(customer);
 
-        when(customerRepository.existsByIdentityNumber(request.getIdentityNumber())).thenReturn(false);
+        when(customerRepository.existsByIdentityNumberHash(any())).thenReturn(false);
         when(customerMapper.toEntity(request)).thenReturn(customer);
         when(customerRepository.save(any())).thenReturn(customer);
         when(customerMapper.toResponse(customer)).thenReturn(response);
@@ -123,7 +123,7 @@ class CustomerServiceTest {
     @Test
     void shouldThrowWhenIdentityNumberExists() {
         var request = validRequest();
-        when(customerRepository.existsByIdentityNumber(request.getIdentityNumber())).thenReturn(true);
+        when(customerRepository.existsByIdentityNumberHash(any())).thenReturn(true);
 
         assertThatThrownBy(() -> customerService.createCustomer(request))
                 .isInstanceOf(DuplicateResourceException.class)
@@ -141,7 +141,7 @@ class CustomerServiceTest {
         var customer = validCustomer();
         var response = validResponse(customer);
 
-        when(customerRepository.existsByIdentityNumber(request.getIdentityNumber())).thenReturn(false);
+        when(customerRepository.existsByIdentityNumberHash(any())).thenReturn(false);
         when(customerMapper.toEntity(request)).thenReturn(customer);
         when(customerMapper.toEntity(any(AddressRequest.class))).thenReturn(
                 Address.builder().line1("Line 1").city("City").district("District").build());
@@ -220,7 +220,7 @@ class CustomerServiceTest {
         var customer = validCustomer();
 
         when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
-        when(customerRepository.existsByIdentityNumber("99999999999")).thenReturn(true);
+        when(customerRepository.existsByIdentityNumberHash(any())).thenReturn(true);
 
         assertThatThrownBy(() -> customerService.updateCustomer(customer.getId(), request))
                 .isInstanceOf(DuplicateResourceException.class);
@@ -295,6 +295,7 @@ class CustomerServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(customer.getStatus()).isEqualTo(CustomerStatus.REJECTED);
+        verify(outboxService).saveEvent(eq("CUSTOMER"), any(), eq("customer-kyc-rejected-topic"), any());
     }
 
     @Test

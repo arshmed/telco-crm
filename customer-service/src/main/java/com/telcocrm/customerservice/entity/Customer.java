@@ -48,6 +48,15 @@ public class Customer {
     @Column(name = "phone", length = 20)
     private String phone;
 
+    @Column(name = "company_name", length = 255)
+    private String companyName;
+
+    @Column(name = "tax_office", length = 100)
+    private String taxOffice;
+
+    @Column(name = "identity_number_hash", length = 64, unique = true)
+    private String identityNumberHash;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

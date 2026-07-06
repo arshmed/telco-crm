@@ -6,7 +6,9 @@ import com.telcocrm.customerservice.entity.Address;
 import com.telcocrm.customerservice.entity.Customer;
 import com.telcocrm.customerservice.entity.Document;
 import com.telcocrm.customerservice.enums.CustomerStatus;
+import com.telcocrm.customerservice.enums.CustomerType;
 import com.telcocrm.customerservice.event.CustomerKYCApprovedEvent;
+import com.telcocrm.customerservice.event.CustomerKYCRejectedEvent;
 import com.telcocrm.customerservice.event.CustomerRegisteredEvent;
 import com.telcocrm.customerservice.event.CustomerUpdatedEvent;
 import com.telcocrm.customerservice.exception.DuplicateResourceException;
@@ -14,8 +16,6 @@ import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,7 +23,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -39,15 +42,16 @@ public class CustomerService {
     private final OutboxService outboxService;
     private final CustomerAuditListener auditListener;
 
-    @Retry(name = "customerService")
-    @CircuitBreaker(name = "customerService")
     @Transactional
     public CustomerResponse createCustomer(CustomerRequest request) {
-        if (customerRepository.existsByIdentityNumber(request.getIdentityNumber())) {
+        validateCustomerRequest(request);
+        String identityHash = hashIdentityNumber(request.getIdentityNumber());
+        if (customerRepository.existsByIdentityNumberHash(identityHash)) {
             throw new DuplicateResourceException("Customer", "identityNumber", request.getIdentityNumber());
         }
 
         Customer customer = customerMapper.toEntity(request);
+        customer.setIdentityNumberHash(identityHash);
 
         if (request.getAddresses() != null) {
             List<Address> addresses = request.getAddresses().stream()
@@ -91,18 +95,19 @@ public class CustomerService {
         return customerMapper.toResponse(findCustomerById(id));
     }
 
-    @Retry(name = "customerService")
-    @CircuitBreaker(name = "customerService")
     @Transactional
     public CustomerResponse updateCustomer(UUID id, CustomerRequest request) {
+        validateCustomerRequest(request);
         Customer customer = findCustomerById(id);
 
-        if (!customer.getIdentityNumber().equals(request.getIdentityNumber())
-                && customerRepository.existsByIdentityNumber(request.getIdentityNumber())) {
+        String newHash = hashIdentityNumber(request.getIdentityNumber());
+        if (!request.getIdentityNumber().equals(customer.getIdentityNumber())
+                && customerRepository.existsByIdentityNumberHash(newHash)) {
             throw new DuplicateResourceException("Customer", "identityNumber", request.getIdentityNumber());
         }
 
         customerMapper.updateEntity(customer, request);
+        customer.setIdentityNumberHash(newHash);
 
         if (request.getAddresses() != null) {
             customer.getAddresses().clear();
@@ -157,8 +162,25 @@ public class CustomerService {
         return customerMapper.toDocumentResponse(saved);
     }
 
-    @Retry(name = "customerService")
-    @CircuitBreaker(name = "customerService")
+    @Transactional
+    public CustomerResponse rejectKyc(UUID id) {
+        Customer customer = findCustomerById(id);
+        if (customer.getStatus() != CustomerStatus.PENDING) {
+            throw new IllegalArgumentException("KYC can only be rejected when customer status is PENDING");
+        }
+        customer.setStatus(CustomerStatus.REJECTED);
+        Customer saved = customerRepository.save(customer);
+
+        outboxService.saveEvent(
+            "CUSTOMER",
+            saved.getId().toString(),
+            "customer-kyc-rejected-topic",
+            CustomerKYCRejectedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName())
+        );
+
+        return customerMapper.toResponse(saved);
+    }
+
     @Transactional
     public CustomerResponse approveKyc(UUID id) {
         Customer customer = findCustomerById(id);
@@ -185,19 +207,36 @@ public class CustomerService {
         return customerMapper.toResponse(saved);
     }
 
-    @Transactional
-    public CustomerResponse rejectKyc(UUID id) {
-        Customer customer = findCustomerById(id);
-        if (customer.getStatus() != CustomerStatus.PENDING) {
-            throw new IllegalArgumentException("KYC can only be rejected when customer status is PENDING");
+    private void validateCustomerRequest(CustomerRequest request) {
+        if (request.getType() == CustomerType.CORPORATE) {
+            if (request.getCompanyName() == null || request.getCompanyName().isBlank()) {
+                throw new IllegalArgumentException("companyName is required for corporate customers");
+            }
+            if (request.getTaxOffice() == null || request.getTaxOffice().isBlank()) {
+                throw new IllegalArgumentException("taxOffice is required for corporate customers");
+            }
+            if (request.getIdentityNumber().length() != 10) {
+                throw new IllegalArgumentException("VKN must be 10 digits for corporate customers");
+            }
+        } else if (request.getType() == CustomerType.INDIVIDUAL) {
+            if (request.getIdentityNumber().length() != 11) {
+                throw new IllegalArgumentException("TCKN must be 11 digits for individual customers");
+            }
         }
-        customer.setStatus(CustomerStatus.REJECTED);
-        Customer saved = customerRepository.save(customer);
-        return customerMapper.toResponse(saved);
     }
 
     private Customer findCustomerById(UUID id) {
         return customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", id));
+    }
+
+    private String hashIdentityNumber(String identityNumber) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(identityNumber.getBytes());
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 }

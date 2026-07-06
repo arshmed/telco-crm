@@ -14,11 +14,16 @@ public record QuotaThresholdReachedEvent(
         UsageType quotaType,
         int thresholdPercent,
         int used,
-        int included
+        int included,
+        String email,
+        String firstName,
+        String lastName
 ) {
     public static QuotaThresholdReachedEvent of(UUID subscriptionId, UUID customerId, String msisdn,
-                                                UsageType quotaType, int thresholdPercent, int used, int included) {
+                                                UsageType quotaType, int thresholdPercent, int used, int included,
+                                                String email, String firstName, String lastName) {
         return new QuotaThresholdReachedEvent(UUID.randomUUID(), LocalDateTime.now(),
-                subscriptionId, customerId, msisdn, quotaType, thresholdPercent, used, included);
+                subscriptionId, customerId, msisdn, quotaType, thresholdPercent, used, included,
+                email, firstName, lastName);
     }
 }

@@ -16,7 +16,10 @@ public record UsageAggregatedEvent(
         LocalDate periodEnd,
         int overageMinutes,
         int overageSms,
-        int overageDataMb
+        int overageDataMb,
+        String email,
+        String firstName,
+        String lastName
 ) {
     public static UsageAggregatedEvent of(Quota quota) {
         return new UsageAggregatedEvent(
@@ -29,7 +32,10 @@ public record UsageAggregatedEvent(
                 quota.getPeriodEnd(),
                 overage(quota.getMinutesUsed(), quota.getMinutesIncluded()),
                 overage(quota.getSmsUsed(), quota.getSmsIncluded()),
-                overage(quota.getDataMbUsed(), quota.getDataMbIncluded())
+                overage(quota.getDataMbUsed(), quota.getDataMbIncluded()),
+                quota.getEmail(),
+                quota.getFirstName(),
+                quota.getLastName()
         );
     }
 

@@ -13,17 +13,19 @@ public record CustomerRegisteredEvent(
     String firstName,
     String lastName,
     String identityNumber,
+    String email,
     LocalDateTime registeredAt
 ) {
     public static CustomerRegisteredEvent of(UUID customerId, CustomerType type,
                                              String firstName, String lastName,
-                                             String identityNumber) {
+                                             String identityNumber, String email) {
         return CustomerRegisteredEvent.builder()
             .customerId(customerId)
             .type(type)
             .firstName(firstName)
             .lastName(lastName)
             .identityNumber(identityNumber)
+            .email(email)
             .registeredAt(LocalDateTime.now())
             .build();
     }

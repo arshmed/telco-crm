@@ -10,9 +10,14 @@ public record OrderCreatedEvent(
     UUID orderId,
     UUID customerId,
     BigDecimal totalAmount,
-    String currency
+    String currency,
+    String email,
+    String firstName,
+    String lastName
 ) {
-    public static OrderCreatedEvent of(UUID orderId, UUID customerId, BigDecimal totalAmount, String currency) {
-        return new OrderCreatedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, customerId, totalAmount, currency);
+    public static OrderCreatedEvent of(UUID orderId, UUID customerId, BigDecimal totalAmount, String currency,
+                                       String email, String firstName, String lastName) {
+        return new OrderCreatedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, customerId, totalAmount, currency,
+                email, firstName, lastName);
     }
 }

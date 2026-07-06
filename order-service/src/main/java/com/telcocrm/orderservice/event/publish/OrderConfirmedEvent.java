@@ -8,9 +8,14 @@ public record OrderConfirmedEvent(
     LocalDateTime occurredAt,
     UUID orderId,
     UUID customerId,
-    UUID subscriptionId
+    UUID subscriptionId,
+    String email,
+    String firstName,
+    String lastName
 ) {
-    public static OrderConfirmedEvent of(UUID orderId, UUID customerId, UUID subscriptionId) {
-        return new OrderConfirmedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, customerId, subscriptionId);
+    public static OrderConfirmedEvent of(UUID orderId, UUID customerId, UUID subscriptionId,
+                                         String email, String firstName, String lastName) {
+        return new OrderConfirmedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, customerId, subscriptionId,
+                email, firstName, lastName);
     }
 }

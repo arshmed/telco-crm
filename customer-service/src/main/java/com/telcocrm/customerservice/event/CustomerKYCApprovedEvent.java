@@ -10,13 +10,15 @@ public record CustomerKYCApprovedEvent(
     UUID customerId,
     String firstName,
     String lastName,
+    String email,
     LocalDateTime approvedAt
 ) {
-    public static CustomerKYCApprovedEvent of(UUID customerId, String firstName, String lastName) {
+    public static CustomerKYCApprovedEvent of(UUID customerId, String firstName, String lastName, String email) {
         return CustomerKYCApprovedEvent.builder()
             .customerId(customerId)
             .firstName(firstName)
             .lastName(lastName)
+            .email(email)
             .approvedAt(LocalDateTime.now())
             .build();
     }

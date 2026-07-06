@@ -35,7 +35,8 @@ public class Customer {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
-    @Column(name = "identity_number", nullable = false, unique = true, length = 20)
+    @Convert(converter = IdentityNumberConverter.class)
+    @Column(name = "identity_number", nullable = false, unique = true, length = 255)
     private String identityNumber;
 
     @Column(name = "date_of_birth", nullable = false)

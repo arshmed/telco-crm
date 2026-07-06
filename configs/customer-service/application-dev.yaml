@@ -37,6 +37,18 @@ spring:
         binder:
           brokers: localhost:9092
 
+app:
+  encryption:
+    key: ${ENCRYPTION_KEY:fN0a/GgrmSqDo3KzFVY8WP1GRaD4QGsKiTi7XOZq5t8=}
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+  file:
+    name: logs/order-service.log
+
 eureka:
   client:
     service-url:
@@ -60,3 +72,26 @@ management:
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+  health:
+    circuitbreakers:
+      enabled: true
+
+resilience4j:
+  retry:
+    instances:
+      customerService:
+        max-attempts: 3
+        wait-duration: 500ms
+  circuitbreaker:
+    instances:
+      customerService:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s

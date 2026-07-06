@@ -75,7 +75,8 @@ public class CustomerService {
                 saved.getType(),
                 saved.getFirstName(),
                 saved.getLastName(),
-                saved.getIdentityNumber()
+                saved.getIdentityNumber(),
+                saved.getEmail()
             )
         );
 
@@ -175,7 +176,7 @@ public class CustomerService {
             "CUSTOMER",
             saved.getId().toString(),
             "customer-kyc-rejected-topic",
-            CustomerKYCRejectedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName())
+            CustomerKYCRejectedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName(), saved.getEmail())
         );
 
         return customerMapper.toResponse(saved);
@@ -201,7 +202,7 @@ public class CustomerService {
             "CUSTOMER",
             saved.getId().toString(),
             "customer-kyc-approved-topic",
-            CustomerKYCApprovedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName())
+            CustomerKYCApprovedEvent.of(saved.getId(), saved.getFirstName(), saved.getLastName(), saved.getEmail())
         );
 
         return customerMapper.toResponse(saved);

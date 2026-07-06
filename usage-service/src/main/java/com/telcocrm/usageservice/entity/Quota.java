@@ -31,6 +31,15 @@ public class Quota {
     @Column(nullable = false, length = 20)
     private String msisdn;
 
+    @Column
+    private String email;
+
+    @Column
+    private String firstName;
+
+    @Column
+    private String lastName;
+
     @Column(nullable = false)
     private String tariffCode;
 

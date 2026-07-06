@@ -107,7 +107,10 @@ public class OrderServiceImpl implements OrderService {
                         order.getId(),
                         order.getCustomerId(),
                         order.getTotalAmount(),
-                        order.getCurrency()));
+                        order.getCurrency(),
+                        customer.email(),
+                        customer.firstName(),
+                        customer.lastName()));
         return orderMapper.toResponse(order);
     }
 
@@ -141,6 +144,8 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
+        CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
+
         outboxService.saveEvent(
                 "ORDER",
                 order.getId().toString(),
@@ -148,7 +153,10 @@ public class OrderServiceImpl implements OrderService {
                 OrderCancelledEvent.of(
                         order.getId(),
                         order.getCustomerId(),
-                        order.getCancellationReason()));
+                        order.getCancellationReason(),
+                        customer.email(),
+                        customer.firstName(),
+                        customer.lastName()));
 
         return orderMapper.toResponse(order);
     }

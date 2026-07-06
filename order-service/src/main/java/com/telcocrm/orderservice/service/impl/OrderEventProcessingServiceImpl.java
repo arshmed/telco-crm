@@ -1,5 +1,7 @@
 package com.telcocrm.orderservice.service.impl;
 
+import com.telcocrm.orderservice.client.CustomerClient;
+import com.telcocrm.orderservice.client.dto.CustomerResponse;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.ProcessedEvent;
 import com.telcocrm.orderservice.event.consume.PaymentCompletedEvent;
@@ -32,6 +34,7 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
     private final OrderStateRules orderStateRules;
+    private final CustomerClient customerClient;
 
     @Override
     @Transactional
@@ -78,6 +81,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
 
         orderRepository.save(order);
 
+        CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
+
         outboxService.saveEvent(
             "ORDER",
             order.getId().toString(),
@@ -85,7 +90,10 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
             OrderCancelledEvent.of(
                 order.getId(),
                 order.getCustomerId(),
-                order.getCancellationReason()
+                order.getCancellationReason(),
+                customer.email(),
+                customer.firstName(),
+                customer.lastName()
             )
         );
 
@@ -114,6 +122,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
 
         orderRepository.save(order);
 
+        CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
+
         outboxService.saveEvent(
             "ORDER",
             order.getId().toString(),
@@ -121,7 +131,10 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
             OrderConfirmedEvent.of(
                 order.getId(),
                 order.getCustomerId(),
-                event.subscriptionId()
+                event.subscriptionId(),
+                customer.email(),
+                customer.firstName(),
+                customer.lastName()
             )
         );
 
@@ -146,6 +159,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
 
         orderRepository.save(order);
 
+        CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
+
         outboxService.saveEvent(
             "ORDER",
             order.getId().toString(),
@@ -153,7 +168,10 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
             OrderCancelledEvent.of(
                 order.getId(),
                 order.getCustomerId(),
-                message
+                message,
+                customer.email(),
+                customer.firstName(),
+                customer.lastName()
             )
         );
         // TODO: payment-service refund event'i eklenecek, PaymentRefunded gelince SagaState FAILED yapılacak

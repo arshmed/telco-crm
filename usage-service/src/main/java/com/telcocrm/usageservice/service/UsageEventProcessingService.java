@@ -1,6 +1,8 @@
 package com.telcocrm.usageservice.service;
 
+import com.telcocrm.usageservice.client.CustomerClient;
 import com.telcocrm.usageservice.client.ProductCatalogClient;
+import com.telcocrm.usageservice.client.dto.CustomerResponse;
 import com.telcocrm.usageservice.client.dto.TariffResponse;
 import com.telcocrm.usageservice.entity.ProcessedEvent;
 import com.telcocrm.usageservice.entity.Quota;
@@ -33,6 +35,7 @@ public class UsageEventProcessingService {
     private final UsageRecordRepository usageRecordRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final ProductCatalogClient productCatalogClient;
+    private final CustomerClient customerClient;
     private final OutboxService outboxService;
 
     @Transactional
@@ -44,11 +47,19 @@ public class UsageEventProcessingService {
 
         TariffResponse tariff = productCatalogClient.getTariffByCode(event.tariffCode());
 
+        CustomerResponse customer = customerClient.getCustomerById(event.customerId());
+        String email = customer != null ? customer.email() : null;
+        String firstName = customer != null ? customer.firstName() : null;
+        String lastName = customer != null ? customer.lastName() : null;
+
         LocalDate periodStart = event.occurredAt().toLocalDate();
         Quota quota = Quota.builder()
                 .subscriptionId(event.subscriptionId())
                 .customerId(event.customerId())
                 .msisdn(event.msisdn())
+                .email(email)
+                .firstName(firstName)
+                .lastName(lastName)
                 .tariffCode(event.tariffCode())
                 .periodStart(periodStart)
                 .periodEnd(periodStart.plusMonths(1).minusDays(1))
@@ -131,12 +142,14 @@ public class UsageEventProcessingService {
         if (crossedWarning) {
             outboxService.saveEvent("QUOTA", quota.getSubscriptionId().toString(), "quota-threshold-reached-topic",
                     QuotaThresholdReachedEvent.of(quota.getSubscriptionId(), quota.getCustomerId(), quota.getMsisdn(),
-                            type, WARNING_THRESHOLD_PERCENT, after, included));
+                            type, WARNING_THRESHOLD_PERCENT, after, included,
+                            quota.getEmail(), quota.getFirstName(), quota.getLastName()));
         }
         if (crossedLimit) {
             outboxService.saveEvent("QUOTA", quota.getSubscriptionId().toString(), "quota-exceeded-topic",
                     QuotaExceededEvent.of(quota.getSubscriptionId(), quota.getCustomerId(), quota.getMsisdn(),
-                            type, after, included));
+                            type, after, included,
+                            quota.getEmail(), quota.getFirstName(), quota.getLastName()));
         }
     }
 

@@ -1,5 +1,7 @@
 package com.telcocrm.orderservice.service.impl;
 
+import com.telcocrm.orderservice.client.CustomerClient;
+import com.telcocrm.orderservice.client.dto.CustomerResponse;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
@@ -43,6 +45,9 @@ class OrderEventProcessingServiceImplTest {
 
     @Mock
     private OrderStateRules orderStateRules;
+
+    @Mock
+    private CustomerClient customerClient;
 
     @InjectMocks
     private OrderEventProcessingServiceImpl processingService;
@@ -129,6 +134,8 @@ class OrderEventProcessingServiceImplTest {
 
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
+        when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
+                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processPaymentFailed(event);
 
@@ -189,6 +196,8 @@ class OrderEventProcessingServiceImplTest {
 
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
+        when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
+                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processSubscriptionActivated(event);
 
@@ -247,6 +256,8 @@ class OrderEventProcessingServiceImplTest {
 
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
+        when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
+                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processSubscriptionActivationFailed(event);
 

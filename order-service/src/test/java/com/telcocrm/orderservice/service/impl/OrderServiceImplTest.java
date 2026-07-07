@@ -79,7 +79,7 @@ class OrderServiceImplTest {
     }
 
     private CustomerResponse activeCustomer(UUID id) {
-        return new CustomerResponse(id, "ACTIVE");
+        return new CustomerResponse(id, "ACTIVE", "test@email.com", "Test", "User");
     }
 
     private ProductResponse activeProduct() {
@@ -133,7 +133,7 @@ class OrderServiceImplTest {
     @Test
     void shouldThrowWhenCustomerNotActive() {
         var request = validRequest();
-        var customer = new CustomerResponse(request.customerId(), "PENDING");
+        var customer = new CustomerResponse(request.customerId(), "PENDING", "test@email.com", "Test", "User");
 
         when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
 
@@ -257,6 +257,8 @@ class OrderServiceImplTest {
             o.setCancellationReason("Order cancelled by user: customer changed mind");
             return null;
         }).when(orderStateRules).cancel(order, request.reason());
+        when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
+                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@email.com", "Test", "User"));
         when(orderMapper.toResponse(order)).thenReturn(response);
 
         OrderResponse result = orderService.cancelOrder(orderId, request);

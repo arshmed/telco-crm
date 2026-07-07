@@ -15,13 +15,13 @@ import com.telcocrm.orderservice.exception.OrderNotFoundException;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.repository.ProcessedEventRepository;
 import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.service.OrderAuditService;
 import com.telcocrm.orderservice.service.OrderEventProcessingService;
 import com.telcocrm.orderservice.service.OutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -33,6 +33,7 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
     private final OrderRepository orderRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
+    private final OrderAuditService orderAuditService;
     private final OrderStateRules orderStateRules;
     private final CustomerClient customerClient;
 
@@ -55,6 +56,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         }
 
         orderRepository.save(order);
+
+        orderAuditService.log(order, "Payment completed: paymentId=" + event.paymentId());
 
         markProcessed(event.eventId());
 
@@ -80,6 +83,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         }
 
         orderRepository.save(order);
+
+        orderAuditService.log(order, order.getCancellationReason());
 
         CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
 
@@ -122,6 +127,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
 
         orderRepository.save(order);
 
+        orderAuditService.log(order, "Subscription activated: subscriptionId=" + event.subscriptionId());
+
         CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
 
         outboxService.saveEvent(
@@ -158,6 +165,8 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
         orderStateRules.markSubscriptionActivationFailed(order, message);
 
         orderRepository.save(order);
+
+        orderAuditService.log(order, message);
 
         CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
 

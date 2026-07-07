@@ -53,9 +53,10 @@ class ProductCatalogClientTest {
     }
 
     @Test
-    void shouldThrowForUnsupportedVasType() {
-        assertThatThrownBy(() -> client.getProductByCode(OrderItemType.VAS, "VAS-1"))
-                .isInstanceOf(UnsupportedOperationException.class);
+    void shouldDispatchToAddonLookupForVasType() {
+        ProductResponse result = client.getProductByCode(OrderItemType.VAS, "ADDON-1");
+
+        assertThat(result).isEqualTo(addonResponse);
     }
 
     @Test

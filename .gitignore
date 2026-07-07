@@ -39,3 +39,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Local-only docs ###
+order-service/ORDER_SERVICE_DEVELOPMENT.md

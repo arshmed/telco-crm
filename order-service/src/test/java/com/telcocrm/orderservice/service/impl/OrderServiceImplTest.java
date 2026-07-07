@@ -19,6 +19,7 @@ import com.telcocrm.orderservice.mapper.OrderMapper;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.service.OrderAuditService;
 import com.telcocrm.orderservice.service.OutboxService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +59,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OutboxService outboxService;
+
+    @Mock
+    private OrderAuditService orderAuditService;
 
     @Mock
     private OrderPricingRules orderPricingRules;

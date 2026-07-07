@@ -44,6 +44,9 @@ class OrderEventProcessingServiceImplTest {
     private com.telcocrm.orderservice.service.OutboxService outboxService;
 
     @Mock
+    private com.telcocrm.orderservice.service.OrderAuditService orderAuditService;
+
+    @Mock
     private OrderStateRules orderStateRules;
 
     @Mock

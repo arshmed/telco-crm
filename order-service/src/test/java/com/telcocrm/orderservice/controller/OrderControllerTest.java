@@ -91,7 +91,7 @@ class OrderControllerTest {
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
         var response = sampleResponse();
-        when(orderService.createOrder(any())).thenReturn(response);
+        when(orderService.createOrder(any(), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,7 +130,7 @@ class OrderControllerTest {
                 UUID.randomUUID(),
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
-        when(orderService.createOrder(any())).thenThrow(new IllegalStateException("Customer " + request.customerId() + " is not active"));
+        when(orderService.createOrder(any(), any())).thenThrow(new IllegalStateException("Customer " + request.customerId() + " is not active"));
 
         mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -8,14 +8,17 @@ import com.telcocrm.orderservice.dto.request.CancelOrderRequest;
 import com.telcocrm.orderservice.dto.request.CreateOrderRequest;
 import com.telcocrm.orderservice.dto.request.OrderItemRequest;
 import com.telcocrm.orderservice.dto.response.OrderResponse;
+import com.telcocrm.orderservice.entity.IdempotencyKey;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderItemType;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
+import com.telcocrm.orderservice.exception.DuplicateRequestException;
 import com.telcocrm.orderservice.exception.OrderNotFoundException;
 import com.telcocrm.orderservice.mapper.OrderMapper;
+import com.telcocrm.orderservice.repository.IdempotencyKeyRepository;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
@@ -28,6 +31,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +51,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private IdempotencyKeyRepository idempotencyKeyRepository;
 
     @Mock
     private CustomerClient customerClient;
@@ -119,7 +126,7 @@ class OrderServiceImplTest {
         });
         when(orderMapper.toResponse(any(Order.class))).thenReturn(mock(OrderResponse.class));
 
-        OrderResponse result = orderService.createOrder(request);
+        OrderResponse result = orderService.createOrder(request, null);
 
         assertThat(result).isNotNull();
         verify(orderRepository).save(orderCaptor.capture());
@@ -141,7 +148,7 @@ class OrderServiceImplTest {
 
         when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
 
-        assertThatThrownBy(() -> orderService.createOrder(request))
+        assertThatThrownBy(() -> orderService.createOrder(request, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("is not active");
         verify(orderRepository, never()).save(any());
@@ -157,7 +164,7 @@ class OrderServiceImplTest {
         when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
         when(productCatalogClient.getProductByCode(OrderItemType.TARIFF, "TARIFF-1")).thenReturn(inactiveProduct);
 
-        assertThatThrownBy(() -> orderService.createOrder(request))
+        assertThatThrownBy(() -> orderService.createOrder(request, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("is not active");
         verify(orderRepository, never()).save(any());
@@ -181,10 +188,80 @@ class OrderServiceImplTest {
         when(productCatalogClient.getProductByCode(OrderItemType.ADDON, "ADDON-1")).thenReturn(usdProduct);
         when(orderPricingRules.buildOrderItem(request.items().getFirst(), tryProduct)).thenReturn(anOrderItem());
 
-        assertThatThrownBy(() -> orderService.createOrder(request))
+        assertThatThrownBy(() -> orderService.createOrder(request, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("mixed currencies");
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldReplayExistingOrderWhenIdempotencyKeyAlreadySeen() {
+        var request = validRequest();
+        var existingOrderId = UUID.randomUUID();
+        var existingOrder = Order.builder().id(existingOrderId).build();
+        var response = mock(OrderResponse.class);
+
+        when(idempotencyKeyRepository.findByKey("key-1")).thenReturn(
+                Optional.of(IdempotencyKey.builder().key("key-1").orderId(existingOrderId).build()));
+        when(orderRepository.findByIdAndDeletedFalse(existingOrderId)).thenReturn(Optional.of(existingOrder));
+        when(orderMapper.toResponse(existingOrder)).thenReturn(response);
+
+        OrderResponse result = orderService.createOrder(request, "key-1");
+
+        assertThat(result).isEqualTo(response);
+        verify(customerClient, never()).getCustomerById(any());
+        verify(orderRepository, never()).save(any());
+        verify(outboxService, never()).saveEvent(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldSaveIdempotencyKeyWhenProvidedAndNotSeenBefore() {
+        var request = validRequest();
+        var customer = activeCustomer(request.customerId());
+        var product = activeProduct();
+
+        when(idempotencyKeyRepository.findByKey("key-2")).thenReturn(Optional.empty());
+        when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
+        when(productCatalogClient.getProductByCode(OrderItemType.TARIFF, "TARIFF-1")).thenReturn(product);
+        when(orderPricingRules.buildOrderItem(request.items().getFirst(), product)).thenReturn(anOrderItem());
+        when(orderPricingRules.calculateTotalAmount(anyList())).thenReturn(BigDecimal.TEN);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order o = invocation.getArgument(0);
+            o.setId(UUID.randomUUID());
+            return o;
+        });
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(mock(OrderResponse.class));
+
+        orderService.createOrder(request, "key-2");
+
+        ArgumentCaptor<IdempotencyKey> keyCaptor = ArgumentCaptor.forClass(IdempotencyKey.class);
+        verify(idempotencyKeyRepository).save(keyCaptor.capture());
+        assertThat(keyCaptor.getValue().getKey()).isEqualTo("key-2");
+        assertThat(keyCaptor.getValue().getOrderId()).isNotNull();
+    }
+
+    @Test
+    void shouldThrowDuplicateRequestWhenIdempotencyKeyRaceLoses() {
+        var request = validRequest();
+        var customer = activeCustomer(request.customerId());
+        var product = activeProduct();
+
+        when(idempotencyKeyRepository.findByKey("key-3")).thenReturn(Optional.empty());
+        when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
+        when(productCatalogClient.getProductByCode(OrderItemType.TARIFF, "TARIFF-1")).thenReturn(product);
+        when(orderPricingRules.buildOrderItem(request.items().getFirst(), product)).thenReturn(anOrderItem());
+        when(orderPricingRules.calculateTotalAmount(anyList())).thenReturn(BigDecimal.TEN);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order o = invocation.getArgument(0);
+            o.setId(UUID.randomUUID());
+            return o;
+        });
+        doThrow(new DataIntegrityViolationException("duplicate key"))
+                .when(idempotencyKeyRepository).save(any(IdempotencyKey.class));
+
+        assertThatThrownBy(() -> orderService.createOrder(request, "key-3"))
+                .isInstanceOf(DuplicateRequestException.class);
+        verify(outboxService, never()).saveEvent(any(), any(), any(), any());
     }
 
     @Test

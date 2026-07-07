@@ -8,6 +8,7 @@ import com.telcocrm.orderservice.dto.request.CancelOrderRequest;
 import com.telcocrm.orderservice.dto.request.CreateOrderRequest;
 import com.telcocrm.orderservice.dto.request.OrderItemRequest;
 import com.telcocrm.orderservice.dto.response.OrderResponse;
+import com.telcocrm.orderservice.entity.IdempotencyKey;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
@@ -15,8 +16,10 @@ import com.telcocrm.orderservice.entity.enums.OrderStatus;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
+import com.telcocrm.orderservice.exception.DuplicateRequestException;
 import com.telcocrm.orderservice.exception.OrderNotFoundException;
 import com.telcocrm.orderservice.mapper.OrderMapper;
+import com.telcocrm.orderservice.repository.IdempotencyKeyRepository;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
@@ -26,14 +29,17 @@ import com.telcocrm.orderservice.service.OutboxService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -44,6 +50,7 @@ public class OrderServiceImpl implements OrderService {
     private static final String ACTIVE_STATUS = "ACTIVE";
 
     private final OrderRepository orderRepository;
+    private final IdempotencyKeyRepository idempotencyKeyRepository;
     private final CustomerClient customerClient;
     private final ProductCatalogClient productCatalogClient;
     private final OrderMapper orderMapper;
@@ -54,7 +61,19 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request) {
+    public OrderResponse createOrder(CreateOrderRequest request, String idempotencyKey) {
+
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.isBlank();
+
+        if (hasIdempotencyKey) {
+            Optional<OrderResponse> replay = idempotencyKeyRepository.findByKey(idempotencyKey)
+                    .map(existing -> orderRepository.findByIdAndDeletedFalse(existing.getOrderId())
+                            .orElseThrow(() -> new OrderNotFoundException(existing.getOrderId())))
+                    .map(orderMapper::toResponse);
+            if (replay.isPresent()) {
+                return replay.get();
+            }
+        }
 
         CustomerResponse customer = customerClient.getCustomerById(request.customerId());
         if (!ACTIVE_STATUS.equals(customer.status())) {
@@ -100,6 +119,18 @@ public class OrderServiceImpl implements OrderService {
         order.setSagaState(sagaState);
 
         orderRepository.save(order);
+
+        if (hasIdempotencyKey) {
+            try {
+                idempotencyKeyRepository.save(IdempotencyKey.builder()
+                        .key(idempotencyKey)
+                        .orderId(order.getId())
+                        .createdAt(Instant.now())
+                        .build());
+            } catch (DataIntegrityViolationException e) {
+                throw new DuplicateRequestException(idempotencyKey);
+            }
+        }
 
         orderAuditService.log(order, "Order created");
 

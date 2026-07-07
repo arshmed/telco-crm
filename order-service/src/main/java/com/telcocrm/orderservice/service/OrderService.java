@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    OrderResponse createOrder(CreateOrderRequest request);
+    OrderResponse createOrder(CreateOrderRequest request, String idempotencyKey);
 
     OrderResponse getOrderById(UUID orderId);
 

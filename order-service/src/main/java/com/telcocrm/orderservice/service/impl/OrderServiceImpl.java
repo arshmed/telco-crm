@@ -20,6 +20,7 @@ import com.telcocrm.orderservice.mapper.OrderMapper;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.service.OrderAuditService;
 import com.telcocrm.orderservice.service.OrderService;
 import com.telcocrm.orderservice.service.OutboxService;
 
@@ -47,6 +48,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductCatalogClient productCatalogClient;
     private final OrderMapper orderMapper;
     private final OutboxService outboxService;
+    private final OrderAuditService orderAuditService;
     private final OrderPricingRules orderPricingRules;
     private final OrderStateRules orderStateRules;
 
@@ -99,6 +101,8 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
+        orderAuditService.log(order, "Order created");
+
         outboxService.saveEvent(
                 "ORDER",
                 order.getId().toString(),
@@ -143,6 +147,8 @@ public class OrderServiceImpl implements OrderService {
         orderStateRules.cancel(order, request.reason());
 
         orderRepository.save(order);
+
+        orderAuditService.log(order, order.getCancellationReason());
 
         CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
 

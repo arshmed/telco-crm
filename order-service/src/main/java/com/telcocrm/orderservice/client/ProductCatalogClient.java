@@ -25,8 +25,7 @@ public interface ProductCatalogClient {
     default ProductResponse getProductByCode(OrderItemType productType, String code) {
         return switch (productType) {
             case TARIFF -> getTariffByCode(code);
-            case ADDON -> getAddonByCode(code);
-            case VAS -> throw new UnsupportedOperationException("VAS products are not supported yet");
+            case ADDON, VAS -> getAddonByCode(code);
         };
     }
 

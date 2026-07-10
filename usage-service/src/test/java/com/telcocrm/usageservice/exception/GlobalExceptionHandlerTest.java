@@ -1,4 +1,4 @@
-package com.telcocrm.productcatalogservice.exception;
+package com.telcocrm.usageservice.exception;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -12,6 +12,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,6 +21,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,16 +40,15 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void baseExceptionMapsStatusTitleAndErrorCode() {
-        ResponseEntity<ProblemDetail> response = handler.handleBaseException(new TariffNotFoundException("GNC-20GB"));
+        ResponseEntity<ProblemDetail> response = handler.handleBaseException(new QuotaNotFoundException(UUID.randomUUID()));
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        ProblemDetail body = response.getBody();
-        assertEquals("TARIFF_NOT_FOUND", body.getTitle());
-        assertEquals("TARIFF_NOT_FOUND", body.getProperties().get("errorCode"));
+        assertEquals("QUOTA_NOT_FOUND", response.getBody().getTitle());
+        assertEquals("QUOTA_NOT_FOUND", response.getBody().getProperties().get("errorCode"));
     }
 
     @Test
-    void problemDetailIncludesCorrelationIdFromMdc() {
+    void baseExceptionIncludesCorrelationIdFromMdc() {
         MDC.put("correlationId", "abc-123");
 
         ResponseEntity<ProblemDetail> response = handler.handleBaseException(new TariffNotFoundException("GNC-20GB"));
@@ -56,7 +57,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void problemDetailOmitsCorrelationIdWhenAbsent() {
+    void baseExceptionOmitsCorrelationIdWhenAbsent() {
         ResponseEntity<ProblemDetail> response = handler.handleBaseException(new TariffNotFoundException("GNC-20GB"));
 
         assertFalse(response.getBody().getProperties().containsKey("correlationId"));
@@ -66,8 +67,8 @@ class GlobalExceptionHandlerTest {
     @SuppressWarnings("unchecked")
     void validationExceptionCollectsFieldErrors() throws NoSuchMethodException {
         MethodParameter parameter = new MethodParameter(Object.class.getMethod("equals", Object.class), 0);
-        BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "tariff");
-        binding.addError(new FieldError("tariff", "code", "must not be blank"));
+        BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "quota");
+        binding.addError(new FieldError("quota", "subscriptionId", "must not be null"));
         MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, binding);
 
         ResponseEntity<ProblemDetail> response = handler.handleValidationException(ex);
@@ -75,7 +76,7 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         Map<String, List<String>> errors =
                 (Map<String, List<String>>) response.getBody().getProperties().get("errors");
-        assertEquals(List.of("must not be blank"), errors.get("code"));
+        assertEquals(List.of("must not be null"), errors.get("subscriptionId"));
     }
 
     @Test
@@ -83,28 +84,28 @@ class GlobalExceptionHandlerTest {
     void constraintViolationExceptionCollectsMessages() {
         ConstraintViolation<?> violation = mock(ConstraintViolation.class);
         Path path = mock(Path.class);
-        when(path.toString()).thenReturn("price");
+        when(path.toString()).thenReturn("from");
         when(violation.getPropertyPath()).thenReturn(path);
-        when(violation.getMessage()).thenReturn("must be positive");
+        when(violation.getMessage()).thenReturn("must not be null");
         ConstraintViolationException ex = new ConstraintViolationException(Set.of(violation));
 
         ResponseEntity<ProblemDetail> response = handler.handleConstraintViolationException(ex);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         List<String> errors = (List<String>) response.getBody().getProperties().get("errors");
-        assertTrue(errors.contains("price: must be positive"));
+        assertTrue(errors.contains("from: must not be null"));
     }
 
     @Test
     void typeMismatchExceptionDescribesParameter() {
         MethodArgumentTypeMismatchException ex =
-                new MethodArgumentTypeMismatchException("abc", Integer.class, "version", null, null);
+                new MethodArgumentTypeMismatchException("abc", UUID.class, "subscriptionId", null, null);
 
         ResponseEntity<ProblemDetail> response = handler.handleTypeMismatchException(ex);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("INVALID_PARAMETER", response.getBody().getTitle());
-        assertTrue(response.getBody().getDetail().contains("version"));
+        assertTrue(response.getBody().getDetail().contains("subscriptionId"));
     }
 
     @Test
@@ -116,6 +117,14 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("MALFORMED_REQUEST", response.getBody().getTitle());
+    }
+
+    @Test
+    void accessDeniedExceptionReturnsForbidden() {
+        ResponseEntity<ProblemDetail> response = handler.handleAccessDeniedException(new AccessDeniedException("nope"));
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals("ACCESS_DENIED", response.getBody().getTitle());
     }
 
     @Test

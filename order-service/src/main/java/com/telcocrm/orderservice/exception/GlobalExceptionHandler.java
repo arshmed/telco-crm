@@ -119,6 +119,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.warn("Illegal argument: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setType(URI.create("https://telcocrm.com/errors/invalid-request"));
+        problem.setTitle("INVALID_REQUEST");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.badRequest().body(problem);
+    }
+
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ProblemDetail> handleFeignException(FeignException ex) {
         log.error("Feign call failed: {}", ex.getMessage());

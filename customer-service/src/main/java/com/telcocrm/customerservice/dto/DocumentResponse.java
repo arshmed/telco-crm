@@ -1,6 +1,5 @@
 package com.telcocrm.customerservice.dto;
 
-import com.telcocrm.customerservice.enums.DocumentType;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -14,7 +13,7 @@ import java.util.UUID;
 public class DocumentResponse {
 
     private UUID id;
-    private DocumentType type;
+    private String type;
     private String fileRef;
     private LocalDateTime verifiedAt;
     private LocalDateTime createdAt;

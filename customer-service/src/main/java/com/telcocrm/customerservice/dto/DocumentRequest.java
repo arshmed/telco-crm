@@ -1,8 +1,6 @@
 package com.telcocrm.customerservice.dto;
 
-import com.telcocrm.customerservice.enums.DocumentType;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -13,8 +11,9 @@ import lombok.*;
 @Builder
 public class DocumentRequest {
 
-    @NotNull
-    private DocumentType type;
+    @NotBlank
+    @Size(max = 50)
+    private String type;
 
     @NotBlank
     @Size(max = 255)

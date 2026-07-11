@@ -27,6 +27,9 @@ public class OrderController {
     public ResponseEntity<OrderResponse> createOrder(
             @Valid @RequestBody CreateOrderRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        if (request.customerId() == null && (request.customerNo() == null || request.customerNo().isBlank())) {
+            throw new IllegalArgumentException("Either customerId or customerNo must be provided");
+        }
         OrderResponse response = orderService.createOrder(request, idempotencyKey);
         return ResponseEntity.created(URI.create("/api/v1/orders/" + response.id())).body(response);
     }

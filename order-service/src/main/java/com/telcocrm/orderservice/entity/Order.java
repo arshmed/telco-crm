@@ -32,6 +32,9 @@ public class Order {
     @Column(nullable = false)
     private UUID customerId;
 
+    @Column(name = "customer_no", length = 20)
+    private String customerNo;
+
     @Enumerated(EnumType.STRING) // DB'ye "DRAFT" gibi yazı olarak kaydeder, sayı değil
     @Column(nullable = false)
     private OrderStatus status;

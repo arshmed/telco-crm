@@ -6,7 +6,6 @@ import com.telcocrm.customerservice.entity.Customer;
 import com.telcocrm.customerservice.entity.Document;
 import com.telcocrm.customerservice.enums.CustomerStatus;
 import com.telcocrm.customerservice.enums.CustomerType;
-import com.telcocrm.customerservice.enums.DocumentType;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -52,7 +51,7 @@ class CustomerMapperTest {
         return Document.builder()
                 .id(UUID.randomUUID())
                 .customer(customer)
-                .type(DocumentType.ID_CARD)
+                .type("ID_CARD")
                 .fileRef("ref-123")
                 .build();
     }
@@ -124,7 +123,7 @@ class CustomerMapperTest {
         var doc = aDocument(customer);
         var response = mapper.toDocumentResponse(doc);
         assertThat(response.getId()).isEqualTo(doc.getId());
-        assertThat(response.getType()).isEqualTo(DocumentType.ID_CARD);
+        assertThat(response.getType()).isEqualTo("ID_CARD");
         assertThat(response.getFileRef()).isEqualTo("ref-123");
     }
 
@@ -191,13 +190,13 @@ class CustomerMapperTest {
     @Test
     void toEntity_shouldMapDocumentRequest() {
         var request = DocumentRequest.builder()
-                .type(DocumentType.ID_CARD)
+                .type("ID_CARD")
                 .fileRef("ref-123")
                 .build();
 
         var doc = mapper.toEntity(request);
 
-        assertThat(doc.getType()).isEqualTo(DocumentType.ID_CARD);
+        assertThat(doc.getType()).isEqualTo("ID_CARD");
         assertThat(doc.getFileRef()).isEqualTo("ref-123");
         assertThat(doc.getId()).isNull();
     }

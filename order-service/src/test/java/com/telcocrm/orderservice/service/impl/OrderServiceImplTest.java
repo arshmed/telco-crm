@@ -85,12 +85,13 @@ class OrderServiceImplTest {
     private CreateOrderRequest validRequest() {
         return new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
     }
 
     private CustomerResponse activeCustomer(UUID id) {
-        return new CustomerResponse(id, "ACTIVE", "test@email.com", "Test", "User");
+        return new CustomerResponse(id, "C-000001", "ACTIVE", "test@email.com", "Test", "User");
     }
 
     private ProductResponse activeProduct() {
@@ -144,7 +145,7 @@ class OrderServiceImplTest {
     @Test
     void shouldThrowWhenCustomerNotActive() {
         var request = validRequest();
-        var customer = new CustomerResponse(request.customerId(), "PENDING", "test@email.com", "Test", "User");
+        var customer = new CustomerResponse(request.customerId(), null, "PENDING", "test@email.com", "Test", "User");
 
         when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
 
@@ -174,6 +175,7 @@ class OrderServiceImplTest {
     void shouldThrowWhenItemsHaveMixedCurrencies() {
         var request = new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(
                         new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1),
                         new OrderItemRequest("ADDON-1", OrderItemType.ADDON, 1)
@@ -339,7 +341,7 @@ class OrderServiceImplTest {
             return null;
         }).when(orderStateRules).cancel(order, request.reason());
         when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
-                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@email.com", "Test", "User"));
+                new CustomerResponse(order.getCustomerId(), "C-000001", "ACTIVE", "test@email.com", "Test", "User"));
         when(orderMapper.toResponse(order)).thenReturn(response);
 
         OrderResponse result = orderService.cancelOrder(orderId, request);

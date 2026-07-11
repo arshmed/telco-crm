@@ -138,7 +138,7 @@ class OrderEventProcessingServiceImplTest {
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
         when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
-                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
+                new CustomerResponse(order.getCustomerId(), "C-000001", "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processPaymentFailed(event);
 
@@ -200,7 +200,7 @@ class OrderEventProcessingServiceImplTest {
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
         when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
-                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
+                new CustomerResponse(order.getCustomerId(), "C-000001", "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processSubscriptionActivated(event);
 
@@ -260,7 +260,7 @@ class OrderEventProcessingServiceImplTest {
         when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
         when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.of(order));
         when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
-                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@example.com", "John", "Doe"));
+                new CustomerResponse(order.getCustomerId(), "C-000001", "ACTIVE", "test@example.com", "John", "Doe"));
 
         processingService.processSubscriptionActivationFailed(event);
 

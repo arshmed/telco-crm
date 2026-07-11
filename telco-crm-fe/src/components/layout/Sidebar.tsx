@@ -4,8 +4,9 @@ import clsx from "clsx";
 const navItems = [
   { path: "/overview", icon: "dashboard", label: "Genel Bakış" },
   { path: "/customers", icon: "person", label: "Müşteriler" },
-  { path: "/sales", icon: "trending_up", label: "Satış" },
+  { path: "/sales", icon: "receipt_long", label: "Siparişler" },
   { path: "/finance", icon: "payments", label: "Finans" },
+  { path: "/catalog", icon: "inventory_2", label: "Ürün Kataloğu" },
   { path: "/support", icon: "support_agent", label: "Destek" },
   { path: "/admin", icon: "settings_suggest", label: "Yönetim" },
 ];

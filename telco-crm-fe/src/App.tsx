@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Overview from "./pages/Overview";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
+import CatalogManager from "./pages/CatalogManager";
+import OrderList from "./pages/OrderList";
 import OrderWizard from "./pages/OrderWizard";
 import LiveSaga from "./pages/LiveSaga";
 import SubscriptionDetail from "./pages/SubscriptionDetail";
@@ -31,10 +33,15 @@ function App() {
             <Route path=":id" element={<CustomerDetail />} />
           </Route>
           
-          <Route path="sales" element={<OrderWizard />} />
-          <Route path="sales/saga/:orderId" element={<LiveSaga />} />
+          <Route path="sales">
+            <Route index element={<OrderList />} />
+            <Route path="new" element={<OrderWizard />} />
+            <Route path="saga/:orderId" element={<LiveSaga />} />
+          </Route>
           
           <Route path="subscriptions/:id" element={<SubscriptionDetail />} />
+          
+          <Route path="catalog" element={<CatalogManager />} />
           
           <Route path="finance">
             <Route index element={<Navigate to="billing" replace />} />

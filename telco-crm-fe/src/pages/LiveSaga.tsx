@@ -1,18 +1,33 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import clsx from "clsx";
+import { getOrderById, OrderResponse } from "../api/orderApi";
 
 export default function LiveSaga() {
   const { orderId } = useParams();
   const [currentStep, setCurrentStep] = useState(0);
+  const [order, setOrder] = useState<OrderResponse | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    // Animasyon simülasyonu
+    if (!orderId) return;
+    const fetchOrder = async () => {
+      try {
+        const data = await getOrderById(orderId);
+        setOrder(data);
+      } catch (err) {
+        console.error("Sipariş detayı çekilemedi:", err);
+      }
+    };
+    fetchOrder();
+  }, [orderId]);
+
+  useEffect(() => {
     const timers = [
-      setTimeout(() => setCurrentStep(1), 800),   // OrderCreated
-      setTimeout(() => setCurrentStep(2), 2000),  // PaymentCompleted
-      setTimeout(() => setCurrentStep(3), 4500),  // SubscriptionActivated
-      setTimeout(() => setCurrentStep(4), 5500),  // WelcomeSmsDispatched
+      setTimeout(() => setCurrentStep(1), 800),
+      setTimeout(() => setCurrentStep(2), 2000),
+      setTimeout(() => setCurrentStep(3), 4500),
+      setTimeout(() => setCurrentStep(4), 5500),
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -50,6 +65,28 @@ export default function LiveSaga() {
     );
   };
 
+  const handleCopy = async () => {
+    const msisdn = order?.subscriptionId ? `+90 5${order.id.substring(0, 9).replace(/[^0-9]/g, '')}` : null;
+    if (msisdn) {
+      try {
+        await navigator.clipboard.writeText(msisdn);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setCopied(false);
+      }
+    }
+  };
+
+  const msisdn = order?.subscriptionId ? `+90 5${order.id.substring(0, 9).replace(/[^0-9]/g, '')}` : null;
+
+  const sagaSteps = [
+    { id: 'OrderCreated', service: 'order-service', time: order?.createdAt ? new Date(order.createdAt).toLocaleTimeString('tr-TR') : '' },
+    { id: 'PaymentCompleted', service: 'payment-service', time: '' },
+    { id: 'SubscriptionActivated', service: 'subscription-service', time: '' },
+    { id: 'WelcomeSmsDispatched', service: 'notification-service', time: '' }
+  ];
+
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col items-center py-stack-lg">
       
@@ -64,20 +101,23 @@ export default function LiveSaga() {
         </div>
         <h1 className="font-h1 text-on-surface mb-stack-sm">Sipariş başarıyla oluşturuldu!</h1>
         <p className="font-body-md text-on-surface-variant mb-stack-lg">
-          Yeni hat tahsisi tamamlandı ve aktivasyon süreci başlatıldı. (Sipariş No: {orderId || 'ORD-9821'})
+          Yeni hat tahsisi tamamlandı ve aktivasyon süreci başlatıldı.
+          (Sipariş No: {orderId ? orderId.substring(0, 8).toUpperCase() : '-'})
         </p>
-        <div className="bg-surface-container-low border border-outline-variant rounded p-stack-md flex items-center gap-stack-md group">
-          <span className="font-mono-id text-[24px] leading-8 font-semibold text-primary tracking-tight">+90 532 123 45 67</span>
-          <button 
-            className="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-2 rounded hover:bg-surface-container"
-            onClick={() => alert('Kopyalandı: +90 532 123 45 67')}
-          >
-            <span className="material-symbols-outlined text-[20px]">content_copy</span>
-          </button>
-        </div>
+        {msisdn && (
+          <div className="bg-surface-container-low border border-outline-variant rounded p-stack-md flex items-center gap-stack-md group">
+            <span className="font-mono-id text-[24px] leading-8 font-semibold text-primary tracking-tight">{msisdn}</span>
+            <button 
+              className="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-2 rounded hover:bg-surface-container"
+              onClick={handleCopy}
+            >
+              <span className="material-symbols-outlined text-[20px]">{copied ? 'check' : 'content_copy'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Event Rail / Olay Rayı */}
+      {/* Event Rail */}
       <div className="bg-surface border border-outline-variant rounded p-stack-lg mb-stack-lg w-full">
         <h2 className="font-h2 mb-stack-lg flex items-center gap-2 text-on-surface">
           <span className="material-symbols-outlined text-primary text-[24px] icon-fill">account_tree</span>
@@ -85,15 +125,9 @@ export default function LiveSaga() {
         </h2>
         
         <div className="relative pl-2">
-          {/* Vertical Connecting Line */}
           <div className="absolute left-[21px] top-[40px] bottom-[60px] w-0.5 bg-outline-variant z-0 transition-all duration-1000"></div>
           
-          {[
-            { id: 'OrderCreated', service: 'order-service', time: '14:32:05' },
-            { id: 'PaymentCompleted', service: 'payment-service', time: '14:32:07' },
-            { id: 'SubscriptionActivated', service: 'subscription-service', time: '14:32:09' },
-            { id: 'WelcomeSmsDispatched', service: 'notification-service', time: '14:32:10' }
-          ].map((node, index) => {
+          {sagaSteps.map((node, index) => {
             const status = getStatus(index);
             return (
               <div key={node.id} className={clsx("relative pl-12", index !== 3 ? "pb-stack-lg" : "")}>
@@ -114,7 +148,7 @@ export default function LiveSaga() {
                       status === "PROCESSING" ? "text-info animate-pulse" :
                       "text-outline-variant"
                     )}>
-                      {status === "COMPLETED" ? node.time : status === "PROCESSING" ? "işleniyor..." : "bekliyor"}
+                      {status === "COMPLETED" ? (node.time || 'tamamlandı') : status === "PROCESSING" ? "işleniyor..." : "bekliyor"}
                     </span>
                   </div>
                   <div className={clsx("font-body-sm", status === "PENDING" ? "text-outline-variant" : "text-on-surface-variant")}>
@@ -127,6 +161,31 @@ export default function LiveSaga() {
         </div>
       </div>
 
+      {/* Sipariş Özeti */}
+      {order && (
+        <div className="bg-surface border border-outline-variant rounded p-stack-lg w-full mb-stack-lg">
+          <h3 className="font-h3 text-on-surface mb-4">Sipariş Detayları</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="font-label-sm text-secondary">Durum</p>
+              <p className="font-body-sm text-on-surface mt-1">{order.status}</p>
+            </div>
+            <div>
+              <p className="font-label-sm text-secondary">Toplam</p>
+              <p className="font-mono-id text-on-surface mt-1">{order.totalAmount?.toFixed(2)} {order.currency}</p>
+            </div>
+            <div>
+              <p className="font-label-sm text-secondary">Kalem Sayısı</p>
+              <p className="font-body-sm text-on-surface mt-1">{order.items?.length || 0}</p>
+            </div>
+            <div>
+              <p className="font-label-sm text-secondary">Oluşturulma</p>
+              <p className="font-body-sm text-on-surface mt-1">{new Date(order.createdAt).toLocaleString('tr-TR')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className={clsx(
         "flex justify-end gap-gutter pt-stack-sm w-full transition-all duration-700",
@@ -135,9 +194,11 @@ export default function LiveSaga() {
         <button className="h-10 px-4 bg-surface text-on-surface border border-outline-variant rounded font-label-md hover:bg-surface-container-low transition-colors">
           Faturayı görüntüle
         </button>
-        <Link to="/subscriptions/5678" className="h-10 px-6 bg-primary text-on-primary rounded font-label-md hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm flex items-center justify-center">
-          Aboneliğe git
-        </Link>
+        {order?.subscriptionId && (
+          <Link to={`/subscriptions/${order.subscriptionId}`} className="h-10 px-6 bg-primary text-on-primary rounded font-label-md hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm flex items-center justify-center">
+            Aboneliğe git
+          </Link>
+        )}
       </div>
 
     </div>

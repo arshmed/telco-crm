@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import clsx from "clsx";
-import { getTariffs, getAllAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
+import { getTariffs, getAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
 import { createOrder, CreateOrderRequest } from "../api/orderApi";
+import { getCustomerByNo, CustomerResponse } from "../api/customerApi";
 
 export default function OrderWizard() {
   const [step, setStep] = useState(1);
@@ -13,8 +14,11 @@ export default function OrderWizard() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Hardcoded for demo, normally selected in Step 1
-  const [customerId, setCustomerId] = useState("00000000-0000-0000-0000-000000000000"); 
+  const [customerNo, setCustomerNo] = useState("");
+  const [verifiedCustomer, setVerifiedCustomer] = useState<CustomerResponse | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
   const [selectedTariff, setSelectedTariff] = useState<TariffResponse | null>(null);
   const [selectedAddons, setSelectedAddons] = useState<AddonResponse[]>([]);
 
@@ -25,7 +29,6 @@ export default function OrderWizard() {
   const [cvv, setCvv] = useState("");
   const [consent, setConsent] = useState(false);
 
-  // Formatter helpers
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
     if (value.length > 16) value = value.slice(0, 16);
@@ -49,25 +52,52 @@ export default function OrderWizard() {
 
   const isPaymentValid = cardHolder.length > 3 && cardNumber.length === 19 && expiryDate.length === 5 && cvv.length === 3 && consent;
 
-  // Fetch Catalogs
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [tariffData, addonData] = await Promise.all([
-          getTariffs(),
-          getAllAddons()
-        ]);
-        setTariffs(tariffData.content || []);
-        setAddons(addonData || []);
-      } catch (err) {
-        console.error("Katalog çekilirken hata:", err);
-      } finally {
-        setLoading(false);
+  const handleVerifyCustomer = async () => {
+    const raw = customerNo.trim();
+    if (!raw) return;
+
+    const formatted = raw.match(/^\d+$/) ? `C-${raw.padStart(6, '0')}` : raw;
+    setCustomerNo(formatted);
+
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const customer = await getCustomerByNo(formatted);
+      if (customer.status !== 'ACTIVE') {
+        setVerifyError("Müşteri aktif durumda değil. Sadece aktif müşteriler için sipariş oluşturulabilir.");
+        return;
       }
-    };
-    fetchData();
-  }, []);
+      setVerifiedCustomer(customer);
+      setStep(2);
+    } catch (err: any) {
+      setVerifyError(err.response?.status === 404
+        ? `"${formatted}" numaralı müşteri bulunamadı. Doğru format: C-000001`
+        : "Müşteri doğrulanırken bir hata oluştu.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  useEffect(() => {
+    if (step === 2 && tariffs.length === 0) {
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          const [tariffData, addonData] = await Promise.all([
+            getTariffs(),
+            getAddons()
+          ]);
+          setTariffs(tariffData.content || []);
+          setAddons(addonData || []);
+        } catch (err) {
+          console.error("Katalog çekilirken hata:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    }
+  }, [step, tariffs.length]);
 
   const handleAddonToggle = (addon: AddonResponse) => {
     if (selectedAddons.find(a => a.id === addon.id)) {
@@ -83,7 +113,7 @@ export default function OrderWizard() {
     setSubmitting(true);
     try {
       const orderPayload: CreateOrderRequest = {
-        customerId: customerId,
+        customerNo: customerNo,
         items: [
           {
             productCode: selectedTariff.code,
@@ -173,18 +203,35 @@ export default function OrderWizard() {
           <div className="flex-1 space-y-stack-lg">
             
             {step === 1 && (
-              <div className="bg-surface border border-outline-variant rounded p-stack-lg text-center py-12">
-                 <h3 className="font-h3 text-on-surface mb-2">Müşteri Doğrulama</h3>
-                 <p className="text-secondary mb-6">İşlem yapacağınız müşterinin ID'sini girin.</p>
-                 <input 
-                    type="text" 
-                    value={customerId} 
-                    onChange={e => setCustomerId(e.target.value)} 
-                    className="border border-outline-variant rounded px-3 py-2 w-full max-w-sm focus:border-primary mb-4" 
-                    placeholder="Müşteri UUID..."
-                 />
-                 <div>
-                  <button onClick={() => setStep(2)} className="px-6 py-2 bg-primary text-surface rounded hover:bg-primary/90">Doğrula ve Devam Et</button>
+              <div className="bg-surface border border-outline-variant rounded p-stack-lg py-12">
+                 <h3 className="font-h3 text-on-surface mb-2 text-center">Müşteri Doğrulama</h3>
+                   <p className="text-secondary mb-6 text-center">İşlem yapacağınız müşterinin numarasını girin.</p>
+                   <div className="max-w-sm mx-auto flex flex-col gap-3">
+                    <input 
+                       type="text" 
+                       value={customerNo} 
+                       onChange={e => setCustomerNo(e.target.value.toUpperCase())} 
+                       onKeyDown={e => e.key === 'Enter' && handleVerifyCustomer()}
+                       className="border border-outline-variant rounded px-3 py-2 focus:border-primary" 
+                       placeholder="C-000001 veya sadece 000001"
+                    />
+                   {verifyError && (
+                     <div className="flex items-center gap-2 text-danger font-body-sm bg-danger-bg/50 px-3 py-2 rounded border border-danger/20">
+                       <span className="material-symbols-outlined text-[18px]">error</span>
+                       {verifyError}
+                     </div>
+                   )}
+                   <button 
+                     onClick={handleVerifyCustomer} 
+                     disabled={!customerNo.trim() || verifying}
+                     className="px-6 py-2 bg-primary text-surface rounded hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                   >
+                     {verifying ? (
+                       <><span className="material-symbols-outlined animate-spin text-[18px]">sync</span> Doğrulanıyor...</>
+                     ) : (
+                       <><span className="material-symbols-outlined text-[18px]">check_circle</span> Doğrula ve Devam Et</>
+                     )}
+                   </button>
                  </div>
               </div>
             )}
@@ -391,8 +438,17 @@ export default function OrderWizard() {
               </div>
               <div className="p-4 space-y-4">
                 <div>
-                  <p className="font-label-sm text-secondary">Müşteri ID</p>
-                  <p className="font-mono-id text-on-surface mt-1 truncate" title={customerId}>{customerId}</p>
+                  <p className="font-label-sm text-secondary">Müşteri</p>
+                  {verifiedCustomer ? (
+                    <div className="mt-1">
+                      <p className="font-body-sm text-on-surface font-medium">
+                        {verifiedCustomer.type === 'CORPORATE' ? verifiedCustomer.companyName : `${verifiedCustomer.firstName} ${verifiedCustomer.lastName}`}
+                      </p>
+                      <p className="font-mono-id text-secondary text-[12px] truncate" title={customerNo}>{customerNo}</p>
+                    </div>
+                  ) : (
+                    <p className="font-mono-id text-on-surface mt-1 truncate" title={customerNo}>{customerNo || '-'}</p>
+                  )}
                 </div>
                 <div>
                   <p className="font-label-sm text-secondary">Seçilen Tarife</p>

@@ -1,11 +1,78 @@
+import { useEffect, useState } from 'react';
+import { billingApi, InvoiceResponse, BillCycleResponse } from '../api/billingApi';
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Taslak',
+  ISSUED: 'Kesildi',
+  PAID: 'Ödendi',
+  OVERDUE: 'Vadesi Geçti',
+  CANCELLED: 'İptal',
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+  DRAFT: 'bg-on-surface-variant/10 text-on-surface-variant border-on-surface-variant/20',
+  ISSUED: 'bg-info-bg text-info border-info/20',
+  PAID: 'bg-success-bg text-success border-success/20',
+  OVERDUE: 'bg-danger-bg text-danger border-danger/20',
+  CANCELLED: 'bg-warning-bg text-warning border-warning/20',
+};
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 export default function Billing() {
+  const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+  const [cycles, setCycles] = useState<BillCycleResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState(() => new Date().toISOString().split('T')[0]);
+  const [triggerResult, setTriggerResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const allInvoices = await billingApi.getInvoices();
+      setInvoices(allInvoices.content || []);
+    } catch {
+      setInvoices([]);
+    }
+    setLoading(false);
+  }
+
+  async function handleTriggerRun() {
+    setTriggering(true);
+    setTriggerResult(null);
+    try {
+      const result = await billingApi.triggerBillRun(selectedPeriod || undefined);
+      setTriggerResult(`${result.generated} fatura başarıyla üretildi.`);
+      loadData();
+    } catch (err: any) {
+      setTriggerResult(err?.response?.data?.message || 'Fatura kesimi başarısız oldu.');
+    }
+    setTriggering(false);
+  }
+
+  const dueCount = invoices.filter(i => i.status === 'OVERDUE').length;
+  const paidCount = invoices.filter(i => i.status === 'PAID').length;
+  const issuedCount = invoices.filter(i => i.status === 'ISSUED').length;
+  const totalRevenue = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + i.grandTotal, 0);
+
   return (
     <div className="max-w-[1200px] mx-auto space-y-stack-lg">
       {/* Page Header */}
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="font-h1 text-on-surface">Fatura Kesimi</h2>
-          <p className="font-body-md text-on-surface-variant mt-1">Dönemsel toplu faturalandırma işlemlerini başlatın ve izleyin.</p>
+          <h2 className="font-h1 text-on-surface">Fatura Yönetimi</h2>
+          <p className="font-body-md text-on-surface-variant mt-1">Faturaları görüntüleyin, fatura kesimi başlatın.</p>
         </div>
         <div className="flex gap-3">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-info-bg text-info font-label-sm border border-info/20">
@@ -15,162 +82,113 @@ export default function Billing() {
         </div>
       </div>
 
-      {/* Action & Active Run Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
-        
-        {/* Start New Run Card */}
-        <div className="col-span-1 bg-surface border border-outline-variant rounded p-5 shadow-sm flex flex-col">
-          <h3 className="font-h3 text-on-surface mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-primary">play_circle</span>
-            Yeni Koşu Başlat
-          </h3>
-          <div className="space-y-4 flex-1">
-            <div className="flex flex-col gap-1">
-              <label className="font-label-sm text-on-surface-variant">Faturalandırma Dönemi</label>
-              <div className="relative">
-                <select className="w-full h-[40px] pl-3 pr-10 border border-outline-variant rounded-lg font-body-md text-on-surface focus:ring-0 focus:border-primary bg-surface appearance-none">
-                  <option value="2026-06">Haziran 2026</option>
-                  <option value="2026-05">Mayıs 2026</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-2.5 text-on-surface-variant pointer-events-none text-[20px]">calendar_month</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-label-sm text-on-surface-variant">Koşu Tipi</label>
-              <select className="w-full h-[40px] px-3 border border-outline-variant rounded-lg font-body-md text-on-surface focus:ring-0 focus:border-primary bg-surface">
-                <option>Standart Bireysel (B2C)</option>
-                <option>Kurumsal (B2B)</option>
-                <option>Ara Dönem (Ad-hoc)</option>
-              </select>
-            </div>
-          </div>
-          <button disabled className="mt-6 w-full h-[40px] bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-            Kesimi Başlat
-            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-          </button>
-          <p className="font-label-sm text-danger mt-2 text-center">Devam eden bir koşu var.</p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-surface border border-outline-variant rounded p-4">
+          <div className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Toplam Fatura</div>
+          <div className="font-mono-id text-[20px] text-on-surface font-semibold">{invoices.length}</div>
         </div>
-
-        {/* Active Run Progress */}
-        <div className="col-span-1 lg:col-span-2 bg-surface border border-outline-variant rounded p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute inset-0 bg-primary/5 animate-pulse pointer-events-none"></div>
-          
-          <div className="relative z-10 flex justify-between items-start mb-6">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-info opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-info"></span>
-                </span>
-                <h3 className="font-h3 text-on-surface">Aktif Koşu: BR-2606-B2C</h3>
-              </div>
-              <p className="font-body-md text-on-surface-variant">Haziran 2026 - Standart Bireysel</p>
-            </div>
-            <div className="text-right">
-              <div className="font-mono-id text-on-surface-variant mb-1">Süre: <span className="font-semibold text-on-surface">12 dk 45 sn</span></div>
-              <div className="font-label-sm text-on-surface-variant">Tahmini Bitiş: ~3 dk</div>
-            </div>
+        <div className="bg-surface border border-outline-variant rounded p-4">
+          <div className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Ödenen</div>
+          <div className="font-mono-id text-[20px] text-success font-semibold">{paidCount}</div>
+        </div>
+        <div className="bg-surface border border-outline-variant rounded p-4">
+          <div className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Vadesi Geçen</div>
+          <div className="font-mono-id text-[20px] text-danger font-semibold flex items-center gap-1">
+            {dueCount}
+            {dueCount > 0 && <span className="material-symbols-outlined text-[16px] text-danger">warning</span>}
           </div>
-
-          <div className="relative z-10 space-y-2 mb-6">
-            <div className="flex justify-between font-label-md">
-              <span className="text-on-surface">İlerleme Durumu</span>
-              <span className="text-primary font-bold">95.4%</span>
-            </div>
-            <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: '95.4%' }}></div>
-            </div>
-            <div className="flex justify-between font-body-sm text-on-surface-variant">
-              <span>95.412 işlendi</span>
-              <span>Hedef: 100.000 abone</span>
-            </div>
-          </div>
-
-          <div className="relative z-10 grid grid-cols-3 gap-4 border-t border-outline-variant pt-4">
-            <div>
-              <div className="font-label-sm text-on-surface-variant mb-1 uppercase tracking-wider">Üretilen Fatura</div>
-              <div className="font-mono-id text-[18px] text-on-surface font-semibold">95.398</div>
-            </div>
-            <div>
-              <div className="font-label-sm text-on-surface-variant mb-1 uppercase tracking-wider">Hatalı İşlem</div>
-              <div className="font-mono-id text-[18px] text-danger font-semibold flex items-center gap-1">
-                14
-                <span className="material-symbols-outlined text-[16px] text-danger">warning</span>
-              </div>
-            </div>
-            <div className="flex items-end justify-end">
-              <button className="text-primary font-label-md hover:underline flex items-center gap-1">
-                Canlı Logları Gör
-                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-              </button>
-            </div>
-          </div>
+        </div>
+        <div className="bg-surface border border-outline-variant rounded p-4">
+          <div className="font-label-sm text-on-surface-variant uppercase tracking-wider mb-1">Toplam Tahsilat</div>
+          <div className="font-mono-id text-[18px] text-on-surface font-semibold">{formatCurrency(totalRevenue)}</div>
         </div>
       </div>
 
-      {/* History Table */}
+      {/* Bill Run Action */}
+      <div className="bg-surface border border-outline-variant rounded p-5 shadow-sm">
+        <h3 className="font-h3 text-on-surface mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px] text-primary">play_circle</span>
+          Toplu Fatura Kesimi Başlat
+        </h3>
+        <div className="flex items-end gap-4">
+          <div className="flex-1 max-w-xs">
+            <label className="font-label-sm text-on-surface-variant mb-1 block">Faturalandırma Dönemi (opsiyonel)</label>
+            <input
+              type="date"
+              value={selectedPeriod}
+              onChange={e => setSelectedPeriod(e.target.value)}
+              className="w-full h-[40px] px-3 border border-outline-variant rounded-lg font-body-md text-on-surface focus:ring-0 focus:border-primary bg-surface"
+            />
+          </div>
+          <button
+            onClick={handleTriggerRun}
+            disabled={triggering}
+            className="h-[40px] px-6 bg-primary text-on-primary rounded-lg font-label-md hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            {triggering ? (
+              <>
+                <span className="animate-spin material-symbols-outlined text-[18px]">refresh</span>
+                İşleniyor...
+              </>
+            ) : (
+              <>
+                Kesimi Başlat
+                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              </>
+            )}
+          </button>
+        </div>
+        {triggerResult && (
+          <p className={`font-body-sm mt-3 ${triggerResult.includes('başarıyla') ? 'text-success' : 'text-danger'}`}>
+            {triggerResult}
+          </p>
+        )}
+      </div>
+
+      {/* Invoice History Table */}
       <div className="bg-surface border border-outline-variant rounded overflow-hidden flex flex-col">
         <div className="px-5 py-4 border-b border-outline-variant flex justify-between items-center bg-background/50">
-          <h3 className="font-h3 text-on-surface">Geçmiş Koşular</h3>
+          <h3 className="font-h3 text-on-surface">Fatura Geçmişi</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface border-b border-outline-variant h-[40px]">
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Koşu No</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Dönem</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Başlangıç Tarihi</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">Süre</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">İşlenen Abone</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">Üretilen Fatura</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">Hata</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Durum</th>
-                <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {/* Active */}
-              <tr className="h-row-height-std hover:bg-surface-container-low transition-colors bg-primary/5">
-                <td className="px-4 font-mono-id text-on-surface">BR-2606-B2C</td>
-                <td className="px-4 font-body-sm text-on-surface">Haziran 2026</td>
-                <td className="px-4 font-body-sm text-on-surface-variant">01.07.2026 02:00</td>
-                <td className="px-4 font-mono-id text-on-surface-variant text-right">12 dk</td>
-                <td className="px-4 font-mono-id text-on-surface text-right">95.412</td>
-                <td className="px-4 font-mono-id text-on-surface text-right">95.398</td>
-                <td className="px-4 font-mono-id text-danger text-right">14</td>
-                <td className="px-4">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-info-bg text-info border border-info/20">
-                    Devam Ediyor
-                  </span>
-                </td>
-                <td className="px-4">
-                  <button className="text-primary font-label-sm hover:underline">Detay</button>
-                </td>
-              </tr>
-              {/* Completed */}
-              <tr className="h-row-height-std hover:bg-surface-container-low transition-colors">
-                <td className="px-4 font-mono-id text-on-surface">BR-2605-B2C</td>
-                <td className="px-4 font-body-sm text-on-surface">Mayıs 2026</td>
-                <td className="px-4 font-body-sm text-on-surface-variant">01.06.2026 02:00</td>
-                <td className="px-4 font-mono-id text-on-surface-variant text-right">18 dk</td>
-                <td className="px-4 font-mono-id text-on-surface text-right">100.000</td>
-                <td className="px-4 font-mono-id text-on-surface text-right">98.190</td>
-                <td className="px-4 font-mono-id text-on-surface-variant text-right">0</td>
-                <td className="px-4">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-success-bg text-success border border-success/20">
-                    Tamamlandı
-                  </span>
-                </td>
-                <td className="px-4">
-                  <div className="flex items-center gap-2">
-                    <button className="text-primary font-label-sm hover:underline">Detay</button>
-                    <button className="text-secondary font-label-sm hover:text-on-surface transition-colors">Log</button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="p-10 text-center font-body-md text-on-surface-variant">Yükleniyor...</div>
+        ) : invoices.length === 0 ? (
+          <div className="p-10 text-center font-body-md text-on-surface-variant">Henüz fatura bulunmuyor.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface border-b border-outline-variant h-[40px]">
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Fatura No</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Müşteri</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Dönem</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Vade</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">Tutar</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Durum</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {invoices.map(inv => (
+                  <tr key={inv.id} className="h-row-height-std hover:bg-surface-container-low transition-colors">
+                    <td className="px-4 font-mono-id text-primary">{inv.invoiceNumber}</td>
+                    <td className="px-4 font-mono-id text-secondary">{inv.customerNo || inv.customerId.slice(0, 8)}</td>
+                    <td className="px-4 font-body-sm text-on-surface-variant">
+                      {formatDate(inv.periodStart)} - {formatDate(inv.periodEnd)}
+                    </td>
+                    <td className="px-4 font-body-sm text-on-surface-variant">{formatDate(inv.dueDate)}</td>
+                    <td className="px-4 font-mono-id text-on-surface text-right font-semibold">{formatCurrency(inv.grandTotal)}</td>
+                    <td className="px-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${STATUS_CLASSES[inv.status] || ''}`}>
+                        {STATUS_LABELS[inv.status] || inv.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

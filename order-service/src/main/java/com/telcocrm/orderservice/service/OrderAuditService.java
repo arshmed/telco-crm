@@ -36,7 +36,10 @@ public class OrderAuditService {
         if (authentication != null
                 && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken)) {
-            return authentication.getName();
+            String name = authentication.getName();
+            if (name != null && !name.isBlank()) {
+                return name;
+            }
         }
         return SYSTEM_ACTOR;
     }

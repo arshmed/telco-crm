@@ -18,6 +18,7 @@ export interface DocumentResponse {
 
 export interface CustomerResponse {
   id: string;
+  customerNo: string;
   type: 'INDIVIDUAL' | 'CORPORATE';
   firstName: string;
   lastName: string;
@@ -34,12 +35,22 @@ export interface CustomerResponse {
   documents: DocumentResponse[];
 }
 
+export interface CustomerRequest {
+  type: 'INDIVIDUAL' | 'CORPORATE';
+  firstName: string;
+  lastName: string;
+  identityNumber: string;
+  dateOfBirth?: string;
+  email: string;
+  phone: string;
+  companyName?: string;
+  taxOffice?: string;
+  addresses?: { line1: string; city: string; district: string; postalCode: string; isDefault: boolean }[];
+}
+
 export interface Page<T> {
   content: T[];
-  pageable: {
-    pageNumber: number;
-    pageSize: number;
-  };
+  pageable: { pageNumber: number; pageSize: number };
   totalElements: number;
   totalPages: number;
   size: number;
@@ -56,7 +67,51 @@ export const getCustomerById = async (id: string) => {
   return response.data;
 };
 
-export const createCustomer = async (data: any) => {
+export const getCustomerByNo = async (customerNo: string) => {
+  const response = await apiClient.get<CustomerResponse>(`/customers/byNo/${customerNo}`);
+  return response.data;
+};
+
+export const createCustomer = async (data: CustomerRequest) => {
   const response = await apiClient.post<CustomerResponse>('/customers', data);
+  return response.data;
+};
+
+export const updateCustomer = async (id: string, data: CustomerRequest) => {
+  const response = await apiClient.put<CustomerResponse>(`/customers/${id}`, data);
+  return response.data;
+};
+
+export const deleteCustomer = async (id: string) => {
+  await apiClient.delete(`/customers/${id}`);
+};
+
+export const approveKyc = async (id: string) => {
+  const response = await apiClient.post<CustomerResponse>(`/customers/${id}/kyc/approve`);
+  return response.data;
+};
+
+export const rejectKyc = async (id: string) => {
+  const response = await apiClient.post<CustomerResponse>(`/customers/${id}/kyc/reject`);
+  return response.data;
+};
+
+export interface DocumentTypeOption {
+  code: string;
+  label: string;
+}
+
+export const getDocumentTypes = async (): Promise<DocumentTypeOption[]> => {
+  const response = await apiClient.get<DocumentTypeOption[]>('/document-types');
+  return response.data;
+};
+
+export interface DocumentRequest {
+  type: string;
+  fileRef: string;
+}
+
+export const uploadDocument = async (customerId: string, data: DocumentRequest): Promise<DocumentResponse> => {
+  const response = await apiClient.post<DocumentResponse>(`/customers/${customerId}/documents`, data);
   return response.data;
 };

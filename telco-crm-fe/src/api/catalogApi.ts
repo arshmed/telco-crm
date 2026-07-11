@@ -38,17 +38,62 @@ export interface Page<T> {
   number: number;
 }
 
-export const getTariffs = async () => {
-  const response = await apiClient.get<Page<TariffResponse>>(`/tariffs?size=50`);
+export const getTariffs = async (status?: string) => {
+  const params = status && status !== 'all' ? `?status=${status}&size=50` : '?size=50';
+  const response = await apiClient.get<Page<TariffResponse>>(`/tariffs${params}`);
   return response.data;
 };
 
-export const getAddonsByTariff = async (tariffCode: string) => {
-  const response = await apiClient.get<AddonResponse[]>(`/addons?tariffCode=${tariffCode}`);
+export const getTariffByCode = async (code: string) => {
+  const response = await apiClient.get<TariffResponse>(`/tariffs/${code}`);
   return response.data;
 };
 
-export const getAllAddons = async () => {
-  const response = await apiClient.get<AddonResponse[]>(`/addons`);
+export const createTariff = async (data: any) => {
+  const response = await apiClient.post<TariffResponse>('/tariffs', data);
   return response.data;
+};
+
+export const updateTariff = async (code: string, data: any) => {
+  const response = await apiClient.put<TariffResponse>(`/tariffs/${code}`, data);
+  return response.data;
+};
+
+export const changeTariffPrice = async (code: string, monthlyFee: number) => {
+  const response = await apiClient.patch<TariffResponse>(`/tariffs/${code}/price`, { monthlyFee });
+  return response.data;
+};
+
+export const publishTariff = async (code: string) => {
+  const response = await apiClient.post<TariffResponse>(`/tariffs/${code}/publish`);
+  return response.data;
+};
+
+export const deleteTariff = async (code: string) => {
+  await apiClient.delete(`/tariffs/${code}`);
+};
+
+export const getAddons = async (tariffCode?: string) => {
+  const params = tariffCode ? `?tariffCode=${tariffCode}` : '';
+  const response = await apiClient.get<AddonResponse[]>(`/addons${params}`);
+  return response.data;
+};
+
+export const getAddonByCode = async (code: string) => {
+  const response = await apiClient.get<AddonResponse>(`/addons/${code}`);
+  return response.data;
+};
+
+export const createAddon = async (data: any) => {
+  const response = await apiClient.post<AddonResponse>('/addons', data);
+  return response.data;
+};
+
+export const updateAddon = async (code: string, data: any) => {
+  const response = await apiClient.put<AddonResponse>(`/addons/${code}`, data);
+  return response.data;
+};
+
+export const deleteAddon = async (code: string) => {
+  await apiClient.delete(`/addons/${code}`);
 };

@@ -75,9 +75,20 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        CustomerResponse customer = customerClient.getCustomerById(request.customerId());
+        CustomerResponse customer;
+        UUID customerId;
+        if (request.customerId() != null) {
+            customerId = request.customerId();
+            customer = customerClient.getCustomerById(customerId);
+        } else if (request.customerNo() != null && !request.customerNo().isBlank()) {
+            customer = customerClient.getCustomerByNo(request.customerNo());
+            customerId = customer.id();
+        } else {
+            throw new IllegalArgumentException("Either customerId or customerNo must be provided");
+        }
+
         if (!ACTIVE_STATUS.equals(customer.status())) {
-            throw new IllegalStateException("Customer " + request.customerId() + " is not active");
+            throw new IllegalStateException("Customer " + customerId + " is not active");
         }
 
         List<OrderItem> items = new ArrayList<>();
@@ -102,7 +113,8 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
         Order order = Order.builder()
-                .customerId(request.customerId())
+                .customerId(customerId)
+                .customerNo(customer.customerNo())
                 .status(OrderStatus.PENDING_PAYMENT)
                 .totalAmount(totalAmount)
                 .currency(currency)

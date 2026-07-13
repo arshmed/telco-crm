@@ -7,7 +7,6 @@ import com.telcocrm.customerservice.dto.CustomerResponse;
 import com.telcocrm.customerservice.dto.DocumentResponse;
 import com.telcocrm.customerservice.enums.CustomerStatus;
 import com.telcocrm.customerservice.enums.CustomerType;
-import com.telcocrm.customerservice.enums.DocumentType;
 import com.telcocrm.customerservice.exception.GlobalExceptionHandler;
 import com.telcocrm.customerservice.service.CustomerService;
 import org.junit.jupiter.api.BeforeEach;
@@ -188,7 +187,7 @@ class CustomerControllerTest {
         when(customerService.addDocument(any(), any())).thenReturn(
                 DocumentResponse.builder()
                         .id(UUID.randomUUID())
-                        .type(DocumentType.ID_CARD)
+                        .type("ID_CARD")
                         .fileRef("ref-123")
                         .build());
 

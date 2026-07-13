@@ -18,9 +18,20 @@ public interface CustomerClient {
     @CircuitBreaker(name = "customerServiceCircuitBreaker", fallbackMethod = "getCustomerByIdFallback")
     CustomerResponse getCustomerById(@PathVariable UUID id);
 
+    @GetMapping("/customers/byNo/{customerNo}")
+    @CircuitBreaker(name = "customerServiceCircuitBreaker", fallbackMethod = "getCustomerByNoFallback")
+    CustomerResponse getCustomerByNo(@PathVariable String customerNo);
+
     default CustomerResponse getCustomerByIdFallback(UUID id, Throwable throwable) {
         if (throwable instanceof FeignException.NotFound) {
             throw new CustomerNotFoundException(id);
+        }
+        throw new ServiceUnavailableException("Customer service", "CUSTOMER_SERVICE_UNAVAILABLE", throwable);
+    }
+
+    default CustomerResponse getCustomerByNoFallback(String customerNo, Throwable throwable) {
+        if (throwable instanceof FeignException.NotFound) {
+            throw new IllegalArgumentException("Customer not found with number: " + customerNo);
         }
         throw new ServiceUnavailableException("Customer service", "CUSTOMER_SERVICE_UNAVAILABLE", throwable);
     }

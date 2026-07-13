@@ -25,7 +25,7 @@ spring:
             - id: customer-service
               uri: lb://customer-service
               predicates:
-                - Path=/api/v1/customers/**
+                - Path=/api/v1/customers/**,/api/v1/document-types/**
 
             - id: product-catalog-service
               uri: lb://product-catalog-service

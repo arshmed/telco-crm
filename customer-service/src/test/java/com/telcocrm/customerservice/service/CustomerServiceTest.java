@@ -7,12 +7,13 @@ import com.telcocrm.customerservice.entity.Customer;
 import com.telcocrm.customerservice.entity.Document;
 import com.telcocrm.customerservice.enums.CustomerStatus;
 import com.telcocrm.customerservice.enums.CustomerType;
-import com.telcocrm.customerservice.enums.DocumentType;
+import com.telcocrm.customerservice.entity.DocumentTypeEntity;
 import com.telcocrm.customerservice.exception.DuplicateResourceException;
 import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
+import com.telcocrm.customerservice.repository.DocumentTypeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -43,6 +44,9 @@ class CustomerServiceTest {
 
     @Mock
     private DocumentRepository documentRepository;
+
+    @Mock
+    private DocumentTypeRepository documentTypeRepository;
 
     @Mock
     private CustomerMapper customerMapper;
@@ -241,11 +245,12 @@ class CustomerServiceTest {
     @Test
     void shouldAddDocument() {
         var customer = validCustomer();
-        var request = DocumentRequest.builder().type(DocumentType.ID_CARD).fileRef("ref-123").build();
-        var document = Document.builder().id(UUID.randomUUID()).type(DocumentType.ID_CARD).fileRef("ref-123").build();
-        var docResponse = DocumentResponse.builder().id(document.getId()).type(DocumentType.ID_CARD).fileRef("ref-123").build();
+        var request = DocumentRequest.builder().type("ID_CARD").fileRef("ref-123").build();
+        var document = Document.builder().id(UUID.randomUUID()).type("ID_CARD").fileRef("ref-123").build();
+        var docResponse = DocumentResponse.builder().id(document.getId()).type("ID_CARD").fileRef("ref-123").build();
 
         when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+        when(documentTypeRepository.findById("ID_CARD")).thenReturn(Optional.of(DocumentTypeEntity.builder().code("ID_CARD").label("Kimlik Kartı").active(true).sortOrder(1).build()));
         when(customerMapper.toEntity(request)).thenReturn(document);
         when(documentRepository.save(any())).thenReturn(document);
         when(customerMapper.toDocumentResponse(document)).thenReturn(docResponse);
@@ -334,7 +339,7 @@ class CustomerServiceTest {
     @Test
     void shouldSetDocumentsVerifiedOnKycApprove() {
         var customer = validCustomer();
-        var doc = Document.builder().id(UUID.randomUUID()).type(DocumentType.ID_CARD).fileRef("ref-1").build();
+        var doc = Document.builder().id(UUID.randomUUID()).type("ID_CARD").fileRef("ref-1").build();
         customer.getDocuments().add(doc);
 
         when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));

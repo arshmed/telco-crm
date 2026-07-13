@@ -1,0 +1,275 @@
+import { useState, useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
+import { getQuota, getUsageHistory, QuotaResponse, UsageRecordResponse, Page } from "../api/usageApi";
+
+export default function SubscriptionDetail() {
+  const { id } = useParams<{ id: string }>();
+  const [quota, setQuota] = useState<QuotaResponse | null>(null);
+  const [usageHistory, setUsageHistory] = useState<UsageRecordResponse[]>([]);
+  const [loadingQuota, setLoadingQuota] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState("Genel Bakış");
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingQuota(true);
+    getQuota(id)
+      .then(setQuota)
+      .catch(() => {})
+      .finally(() => setLoadingQuota(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== "Kullanım Geçmişi" || !id) return;
+    setLoadingHistory(true);
+    getUsageHistory(id)
+      .then((data: Page<UsageRecordResponse>) => setUsageHistory(data.content || []))
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false));
+  }, [activeTab, id]);
+
+  const internetTotal = quota?.dataMbIncluded ? quota.dataMbIncluded / 1024 : 0;
+  const internetRemaining = quota?.dataMbRemaining ? quota.dataMbRemaining / 1024 : 0;
+  const internetPct = internetTotal > 0 ? internetRemaining / internetTotal : 0;
+  const minutesPct = quota && quota.minutesIncluded > 0 ? quota.minutesRemaining / quota.minutesIncluded : 0;
+  const smsPct = quota && quota.smsIncluded > 0 ? quota.smsRemaining / quota.smsIncluded : 0;
+
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+
+  const internetOffset = circumference - (internetPct * circumference);
+  const dakikaOffset = circumference - (minutesPct * circumference);
+  const smsOffset = circumference - (smsPct * circumference);
+
+  const handleBuyAddon = () => {
+    alert("5GB Ek İnternet Paketi hatta tanımlandı.");
+  };
+
+  const formatPeriod = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  };
+
+  return (
+    <div className="flex flex-col gap-stack-lg max-w-[1440px] mx-auto">
+      
+      {/* Entity Header */}
+      <header className="flex flex-col gap-stack-sm bg-surface p-container-padding border border-outline-variant rounded">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-4">
+            <h2 className="font-mono-id text-[24px] font-semibold text-on-surface tracking-tight tabular-nums">{quota?.msisdn || id}</h2>
+            <span className="px-2 py-1 bg-success-bg text-success font-label-sm rounded-full flex items-center gap-1 border border-success/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+              Aktif
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button className="px-4 py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors">
+              Düzenle
+            </button>
+            <button className="p-2 bg-surface border border-outline-variant text-on-surface rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center">
+              <span className="material-symbols-outlined">more_vert</span>
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-6 mt-2 text-on-surface-variant font-body-sm border-t border-outline-variant pt-3">
+          <div className="flex flex-col">
+            <span className="text-outline font-label-sm">Abonelik ID</span>
+            <span className="font-mono-id text-primary mt-0.5">{id?.substring(0, 8).toUpperCase()}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-outline font-label-sm">Tarife</span>
+            <span className="mt-0.5 font-medium">{quota?.tariffCode || "-"}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-outline font-label-sm">Dönem</span>
+            <span className="mt-0.5 font-medium tabular-nums">{quota ? `${formatPeriod(quota.periodStart)} - ${formatPeriod(quota.periodEnd)}` : "-"}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <div className="flex border-b border-outline-variant">
+        {["Genel Bakış", "Kullanım Geçmişi"].map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-3 font-label-md transition-colors ${activeTab === tab ? "text-primary border-b-2 border-primary" : "text-on-surface-variant hover:text-on-surface"}`}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-gutter">
+        
+        {/* Left Column */}
+        <div className="flex-1 flex flex-col gap-gutter">
+          
+          {activeTab === "Genel Bakış" && (
+            <>
+              {/* Kota Kullanımı */}
+              <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
+                <h3 className="font-h3 text-on-surface">Kota Kullanımı</h3>
+                {loadingQuota ? (
+                  <div className="p-8 text-center text-secondary">
+                    <span className="material-symbols-outlined animate-spin inline-block align-middle mr-2">sync</span>
+                    Yükleniyor...
+                  </div>
+                ) : quota ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Internet Quota */}
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="font-label-md text-on-surface-variant">İnternet</span>
+                      <div className="relative w-32 h-32">
+                        <svg className="w-full h-full -rotate-90 transform-origin-center" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" className="text-surface-container-high stroke-current" />
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={internetOffset} strokeLinecap="round" className="text-primary stroke-current transition-all duration-1000 ease-out" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="font-mono-id text-[18px] font-semibold text-on-surface tabular-nums">{internetRemaining.toFixed(1)} GB</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-body-sm text-on-surface-variant tabular-nums">{internetTotal.toFixed(0)} GB'ın {internetRemaining.toFixed(1)} GB'ı kaldı</p>
+                        <p className="font-mono-label text-outline mt-1 tabular-nums">Dönem: {formatPeriod(quota.periodStart)} - {formatPeriod(quota.periodEnd)}</p>
+                      </div>
+                    </div>
+                    {/* Dakika Quota */}
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="font-label-md text-on-surface-variant">Dakika</span>
+                      <div className="relative w-32 h-32">
+                        <svg className="w-full h-full -rotate-90 transform-origin-center" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" className="text-surface-container-high stroke-current" />
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={dakikaOffset} strokeLinecap="round" className="text-secondary stroke-current transition-all duration-500" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="font-mono-id text-[18px] font-semibold text-on-surface tabular-nums">{quota.minutesRemaining} DK</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-body-sm text-on-surface-variant tabular-nums">{quota.minutesIncluded} DK'nın {quota.minutesRemaining} DK'sı kaldı</p>
+                        <p className="font-mono-label text-outline mt-1 tabular-nums">Dönem: {formatPeriod(quota.periodStart)} - {formatPeriod(quota.periodEnd)}</p>
+                      </div>
+                    </div>
+                    {/* SMS Quota */}
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="font-label-md text-on-surface-variant">SMS</span>
+                      <div className="relative w-32 h-32">
+                        <svg className="w-full h-full -rotate-90 transform-origin-center" viewBox="0 0 100 100">
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" className="text-surface-container-high stroke-current" />
+                          <circle cx="50" cy="50" r={radius} fill="transparent" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={smsOffset} strokeLinecap="round" className="text-outline-variant stroke-current transition-all duration-500" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="font-mono-id text-[18px] font-semibold text-on-surface tabular-nums">{quota.smsRemaining} SMS</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-body-sm text-on-surface-variant tabular-nums">{quota.smsIncluded} SMS'in {quota.smsRemaining} SMS'i kaldı</p>
+                        <p className="font-mono-label text-outline mt-1 tabular-nums">Dönem: {formatPeriod(quota.periodStart)} - {formatPeriod(quota.periodEnd)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-secondary">Kota bilgisi bulunamadı.</div>
+                )}
+              </div>
+
+              {/* Tarife Bilgileri */}
+              <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
+                <h3 className="font-h3 text-on-surface">Tarife Bilgileri</h3>
+                <div className="flex justify-between items-end mb-2">
+                  <div>
+                    <span className="font-body-sm text-on-surface-variant block mb-1">Mevcut Tarife</span>
+                    <span className="font-label-md text-on-surface">{quota?.tariffCode || "-"}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-auto">
+                  <button className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors text-center">Tarife Değiştir</button>
+                  <button onClick={handleBuyAddon} className="flex-1 py-2 bg-surface border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors text-center">Ek Paket Ekle (5GB)</button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "Kullanım Geçmişi" && (
+            <div className="bg-surface border border-outline-variant rounded overflow-hidden shadow-sm">
+              {loadingHistory ? (
+                <div className="p-8 text-center text-secondary">
+                  <span className="material-symbols-outlined animate-spin inline-block align-middle mr-2">sync</span>
+                  Kullanım geçmişi yükleniyor...
+                </div>
+              ) : usageHistory.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-background border-b border-outline-variant h-10">
+                      <th className="px-gutter font-label-sm text-secondary">Tür</th>
+                      <th className="px-gutter font-label-sm text-secondary">Miktar</th>
+                      <th className="px-gutter font-label-sm text-secondary">Tarih</th>
+                      <th className="px-gutter font-label-sm text-secondary">CDR Ref</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant">
+                    {usageHistory.map((record) => (
+                      <tr key={record.id} className="h-row-height-std hover:bg-surface-container-low transition-colors">
+                        <td className="px-gutter">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-label-sm bg-surface-container text-on-surface border border-outline-variant">
+                            {record.type}
+                          </span>
+                        </td>
+                        <td className="px-gutter font-mono-id tabular-nums">{record.quantity}</td>
+                        <td className="px-gutter font-mono-id text-secondary text-[13px]">{new Date(record.recordedAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="px-gutter font-mono-id text-secondary text-[13px]">{record.cdrRef}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-8 text-center text-secondary">
+                  <span className="material-symbols-outlined block text-[32px] text-surface-container-highest mb-2">history</span>
+                  Kullanım geçmişi bulunmuyor.
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Column */}
+        <div className="w-full lg:w-[360px] flex flex-col gap-gutter shrink-0">
+          
+          {/* Durum Yönetimi */}
+          <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
+            <h3 className="font-h3 text-on-surface">Durum Yönetimi</h3>
+            <p className="font-body-sm text-on-surface-variant">Bu abonelik şu anda aktif durumdadır. İşlemler faturalandırmayı etkileyebilir.</p>
+            <div className="flex flex-col gap-2 mt-2">
+              <button className="w-full py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors flex justify-center items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">pause_circle</span> Askıya Al
+              </button>
+              <button className="w-full py-2 bg-danger-bg border border-danger/20 text-danger font-label-md rounded-lg hover:bg-danger hover:text-surface transition-colors flex justify-center items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">cancel</span> Sonlandır
+              </button>
+            </div>
+          </div>
+
+          {/* Bilgi Kartları */}
+          <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
+            <h3 className="font-h3 text-on-surface">Abonelik Bilgileri</h3>
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                <span className="font-body-sm text-on-surface-variant">Abonelik ID</span>
+                <span className="font-mono-id text-on-surface tabular-nums text-[13px]">{id?.substring(0, 8).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                <span className="font-body-sm text-on-surface-variant">MSISDN</span>
+                <span className="font-mono-id text-on-surface tabular-nums">{quota?.msisdn || "-"}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="font-body-sm text-on-surface-variant">Tarife</span>
+                <span className="font-body-sm text-on-surface">{quota?.tariffCode || "-"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

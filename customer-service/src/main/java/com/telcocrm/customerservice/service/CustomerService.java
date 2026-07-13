@@ -16,6 +16,7 @@ import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
+import com.telcocrm.customerservice.repository.DocumentTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentTypeRepository documentTypeRepository;
     private final CustomerMapper customerMapper;
     private final OutboxService outboxService;
     private final CustomerAuditListener auditListener;
@@ -52,6 +54,7 @@ public class CustomerService {
 
         Customer customer = customerMapper.toEntity(request);
         customer.setIdentityNumberHash(identityHash);
+        customer.setCustomerNo(generateCustomerNo());
 
         if (request.getAddresses() != null) {
             List<Address> addresses = request.getAddresses().stream()
@@ -94,6 +97,13 @@ public class CustomerService {
     @Transactional(readOnly = true)
     public CustomerResponse getCustomer(UUID id) {
         return customerMapper.toResponse(findCustomerById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerResponse getCustomerByNo(String customerNo) {
+        Customer customer = customerRepository.findByCustomerNo(customerNo)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer", "customerNo", customerNo));
+        return customerMapper.toResponse(customer);
     }
 
     @Transactional
@@ -153,6 +163,10 @@ public class CustomerService {
     @Transactional
     public DocumentResponse addDocument(UUID customerId, DocumentRequest request) {
         Customer customer = findCustomerById(customerId);
+
+        if (!documentTypeRepository.findById(request.getType()).isPresent()) {
+            throw new IllegalArgumentException("Invalid document type: " + request.getType());
+        }
 
         Document document = customerMapper.toEntity(request);
         document.setCustomer(customer);
@@ -239,5 +253,11 @@ public class CustomerService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);
         }
+    }
+
+    private String generateCustomerNo() {
+        String maxNo = customerRepository.findMaxCustomerNo().orElse("C-000000");
+        long nextNum = Long.parseLong(maxNo.substring(2)) + 1;
+        return String.format("C-%06d", nextNum);
     }
 }

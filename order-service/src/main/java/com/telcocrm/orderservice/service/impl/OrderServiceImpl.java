@@ -120,8 +120,7 @@ public class OrderServiceImpl implements OrderService {
                 .currency(currency)
                 .build();
 
-        items.forEach(item -> item.setOrder(order));
-        order.getItems().addAll(items);
+        items.forEach(order::addItem);
 
         SagaState sagaState = SagaState.builder()
                 .order(order)

@@ -1,0 +1,7 @@
+package com.telcocrm.paymentservice.entity.enums;
+
+public enum PaymentMethod {
+    CREDIT_CARD,
+    BANK_TRANSFER,
+    WALLET
+}

@@ -88,4 +88,14 @@ public class Order {
     // OneToOne → Her siparişin bir Saga durumu var
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
     private SagaState sagaState;
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    public void removeItem(OrderItem item) {
+        items.remove(item);
+        item.setOrder(null);
+    }
 }

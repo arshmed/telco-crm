@@ -61,6 +61,11 @@ public class OrderStateRules {
         sagaState.setErrorMessage(errorMessage);
     }
 
+    public void markPaymentRefunded(Order order) {
+        order.setStatus(OrderStatus.CANCELLED);
+        requireSagaState(order).setCurrentStep(SagaStep.FAILED);
+    }
+
     private void requireStatus(Order order, OrderStatus expected) {
         if (order.getStatus() != expected) {
             throw new InvalidOrderStateException(order.getId(), order.getStatus(), expected);

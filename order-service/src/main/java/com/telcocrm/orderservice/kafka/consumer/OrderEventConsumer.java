@@ -2,6 +2,7 @@ package com.telcocrm.orderservice.kafka.consumer;
 
 import com.telcocrm.orderservice.event.consume.PaymentCompletedEvent;
 import com.telcocrm.orderservice.event.consume.PaymentFailedEvent;
+import com.telcocrm.orderservice.event.consume.PaymentRefundedEvent;
 import com.telcocrm.orderservice.event.consume.SubscriptionActivatedEvent;
 import com.telcocrm.orderservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.orderservice.service.OrderEventProcessingService;
@@ -36,5 +37,10 @@ public class OrderEventConsumer {
     @Bean
     public Consumer<SubscriptionActivationFailedEvent> subscriptionActivationFailedEvent() {
         return orderEventProcessingService::processSubscriptionActivationFailed;
+    }
+
+    @Bean
+    public Consumer<PaymentRefundedEvent> paymentRefundedEvent() {
+        return orderEventProcessingService::processPaymentRefunded;
     }
 }

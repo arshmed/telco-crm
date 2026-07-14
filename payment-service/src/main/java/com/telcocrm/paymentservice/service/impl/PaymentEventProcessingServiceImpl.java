@@ -8,8 +8,10 @@ import com.telcocrm.paymentservice.entity.ProcessedEvent;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
+import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentCompletedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentFailedEvent;
+import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
 import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
@@ -98,5 +100,47 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
 
         log.info("OrderCreated processed, payment {} for orderId: {}",
                 chargeResult.success() ? "completed" : "failed", event.orderId());
+    }
+
+    @Override
+    @Transactional
+    public void processSubscriptionActivationFailed(SubscriptionActivationFailedEvent event) {
+        if (processedEventRepository.existsByEventId(event.eventId())) {
+            log.warn("SubscriptionActivationFailedEvent already processed: {}", event.eventId());
+            return;
+        }
+
+        Payment payment = paymentRepository.findByOrderId(event.orderId()).orElse(null);
+        if (payment == null) {
+            log.warn("No payment found for orderId: {}, skipping SubscriptionActivationFailedEvent {}",
+                    event.orderId(), event.eventId());
+            return;
+        }
+
+        if (payment.getStatus() != PaymentStatus.COMPLETED) {
+            log.warn("Payment {} for orderId: {} is not COMPLETED (status={}), nothing to refund",
+                    payment.getId(), event.orderId(), payment.getStatus());
+            return;
+        }
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+
+        paymentRepository.save(payment);
+
+        outboxService.saveEvent(
+            "PAYMENT",
+            payment.getId().toString(),
+            "payment-refunded-topic",
+            PaymentRefundedEvent.of(payment.getOrderId(), payment.getId(), payment.getAmount())
+        );
+
+        processedEventRepository.save(
+            ProcessedEvent.builder()
+                .eventId(event.eventId())
+                .processedAt(Instant.now())
+                .build()
+        );
+
+        log.info("SubscriptionActivationFailed processed, payment refunded for orderId: {}", event.orderId());
     }
 }

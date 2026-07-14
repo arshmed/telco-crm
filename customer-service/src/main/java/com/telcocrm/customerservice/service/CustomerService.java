@@ -19,6 +19,8 @@ import com.telcocrm.customerservice.repository.DocumentRepository;
 import com.telcocrm.customerservice.repository.DocumentTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,7 @@ public class CustomerService {
     private final OutboxService outboxService;
     private final CustomerAuditListener auditListener;
 
+    @CacheEvict(cacheNames = "customers", key = "#result.id")
     @Transactional
     public CustomerResponse createCustomer(CustomerRequest request) {
         validateCustomerRequest(request);
@@ -94,11 +97,13 @@ public class CustomerService {
                 .map(customerMapper::toResponse);
     }
 
+    @Cacheable(cacheNames = "customers", key = "#id")
     @Transactional(readOnly = true)
     public CustomerResponse getCustomer(UUID id) {
         return customerMapper.toResponse(findCustomerById(id));
     }
 
+    @Cacheable(cacheNames = "customers-by-no", key = "#customerNo")
     @Transactional(readOnly = true)
     public CustomerResponse getCustomerByNo(String customerNo) {
         Customer customer = customerRepository.findByCustomerNo(customerNo)
@@ -106,6 +111,7 @@ public class CustomerService {
         return customerMapper.toResponse(customer);
     }
 
+    @CacheEvict(cacheNames = {"customers", "customers-by-no"}, key = "#id")
     @Transactional
     public CustomerResponse updateCustomer(UUID id, CustomerRequest request) {
         validateCustomerRequest(request);
@@ -152,6 +158,7 @@ public class CustomerService {
         return customerMapper.toResponse(saved);
     }
 
+    @CacheEvict(cacheNames = {"customers", "customers-by-no"}, key = "#id")
     @Transactional
     public void deleteCustomer(UUID id) {
         Customer customer = findCustomerById(id);

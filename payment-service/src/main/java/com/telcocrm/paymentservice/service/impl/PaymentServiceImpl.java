@@ -1,5 +1,6 @@
 package com.telcocrm.paymentservice.service.impl;
 
+import com.telcocrm.paymentservice.config.PaymentAuditListener;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.entity.Payment;
@@ -16,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -26,6 +28,13 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final OutboxService outboxService;
+    private final PaymentAuditListener auditListener;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentResponse> getAllPayments(org.springframework.data.domain.Pageable pageable) {
+        return paymentRepository.findAll(pageable).map(paymentMapper::toResponse);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -46,9 +55,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentRefundException(paymentId, "Only completed payments can be refunded");
         }
 
+        PaymentStatus oldStatus = payment.getStatus();
         payment.setStatus(PaymentStatus.REFUNDED);
 
         paymentRepository.save(payment);
+
+        auditListener.logUpdate("Payment", payment.getId().toString(),
+                Map.of("status", oldStatus), Map.of("status", PaymentStatus.REFUNDED));
 
         outboxService.saveEvent(
                 "PAYMENT",

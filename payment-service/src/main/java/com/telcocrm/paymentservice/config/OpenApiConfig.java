@@ -1,4 +1,4 @@
-package com.telcocrm.notificationservice.config;
+package com.telcocrm.paymentservice.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -10,9 +10,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
-                title = "Notification Service API",
+                title = "Payment Service API",
                 version = "v1",
-                description = "Çok kanallı bildirim yönetimi servisi (SMS, e-posta, push)"
+                description = "Ödeme yönetimi ve PSP entegrasyonu"
         ),
         security = @SecurityRequirement(name = "bearerAuth")
 )

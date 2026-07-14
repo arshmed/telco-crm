@@ -24,6 +24,17 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      key-prefix: "customer:"
+
   security:
     oauth2:
       resourceserver:

@@ -1,24 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
+import { getPayments, PaymentResponse, Page } from "../api/paymentApi";
 
-const PAYMENT_FILTERS = ["Tümü", "Tamamlandı", "Başarısız", "İade"];
-
-const payments = [
-  { id: "PAY-9012-XT", invoice: "INV-4451", customer: "Ahmet Yılmaz", amount: "₺ 1.250,00", method: "Kredi Kartı", date: "01.07.2026", status: "TAMAMLANDI", statusClass: "bg-success-bg text-success" },
-  { id: "PAY-8812-KL", invoice: "INV-4399", customer: "Mehmet Demir", amount: "₺ 890,00", method: "Banka Havalesi", date: "28.06.2026", status: "BAŞARISIZ", statusClass: "bg-danger-bg text-danger" },
-  { id: "PAY-7723-MN", invoice: "INV-4388", customer: "Ayşe Kaya", amount: "₺ 2.100,00", method: "Kredi Kartı", date: "25.06.2026", status: "TAMAMLANDI", statusClass: "bg-success-bg text-success" },
-  { id: "PAY-6614-OP", invoice: "INV-4377", customer: "Can Yıldız", amount: "₺ 540,00", method: "Otomatik Ödeme", date: "20.06.2026", status: "İADE", statusClass: "bg-warning-bg text-warning" },
+const PAYMENT_FILTERS = [
+  { key: "ALL", label: "Tümü" },
+  { key: "COMPLETED", label: "Tamamlandı" },
+  { key: "FAILED", label: "Başarısız" },
+  { key: "REFUNDED", label: "İade" },
 ];
 
-export default function Payments() {
-  const [activeFilter, setActiveFilter] = useState("Tümü");
+const STATUS_CLASSES: Record<string, string> = {
+  COMPLETED: "bg-success-bg text-success",
+  FAILED: "bg-danger-bg text-danger",
+  REFUNDED: "bg-warning-bg text-warning",
+};
 
-  const filteredPayments = activeFilter === "Tümü"
-    ? payments
-    : payments.filter(p => p.status === activeFilter.toUpperCase());
+export default function Payments() {
+  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [payments, setPayments] = useState<Page<PaymentResponse> | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const data = await getPayments(0, 50);
+      setPayments(data);
+    } catch (err) {
+      console.error("Failed to fetch payments", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFilteredPayments = () => {
+    if (!payments?.content) return [];
+    if (activeFilter === "ALL") return payments.content;
+    return payments.content.filter((p) => p.status === activeFilter);
+  };
 
   return (
     <div className="flex flex-col gap-stack-lg max-w-7xl mx-auto w-full">
+      {/* Finance Tabs */}
+      <div className="border-b border-outline-variant mb-2">
+        <nav className="flex gap-8">
+          <a href="/finance/billing"
+            className="py-3 font-label-md border-b-2 border-transparent text-secondary hover:text-on-surface transition-colors">
+            Faturalar
+          </a>
+          <a href="/finance/payments"
+            className="py-3 font-label-md border-b-2 border-primary text-primary transition-colors">
+            Ödemeler
+          </a>
+        </nav>
+      </div>
+
       {/* Header */}
       <div>
         <h1 className="font-h1 text-on-surface">Ödemeler</h1>
@@ -29,63 +68,63 @@ export default function Payments() {
         <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
           {PAYMENT_FILTERS.map((f) => (
             <button
-              key={f}
-              onClick={() => setActiveFilter(f)}
+              key={f.key}
+              onClick={() => setActiveFilter(f.key)}
               className={clsx(
                 "px-3 py-1.5 rounded-md font-label-md whitespace-nowrap transition-colors",
-                activeFilter === f
+                activeFilter === f.key
                   ? "bg-primary-container text-on-primary-fixed"
                   : "text-on-surface-variant hover:bg-surface-variant"
               )}
             >
-              {f}
+              {f.label}
             </button>
           ))}
-        </div>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-outline text-[18px]">search</span>
-            <input 
-              type="text" 
-              placeholder="Ödeme No veya Müşteri" 
-              className="w-full h-10 pl-9 pr-3 rounded border border-outline-variant bg-surface focus:border-primary focus:ring-0 text-body-sm" 
-            />
-          </div>
         </div>
       </div>
 
       {/* Data Table */}
       <div className="bg-surface border border-outline-variant rounded overflow-hidden flex-1">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-background border-b border-outline-variant">
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Ödeme No</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Fatura No</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Müşteri</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Yöntem</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4 text-right">Tutar</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Tarih</th>
-                <th className="font-label-sm text-on-surface-variant py-3 px-4">Durum</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {filteredPayments.map((p) => (
-                <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors cursor-pointer">
-                  <td className="px-4 font-mono-id text-on-surface">{p.id}</td>
-                  <td className="px-4 font-mono-id text-primary">{p.invoice}</td>
-                  <td className="px-4 font-body-sm text-primary font-medium">{p.customer}</td>
-                  <td className="px-4 font-body-sm text-on-surface-variant">{p.method}</td>
-                  <td className="px-4 text-right font-mono-id tabular-nums">{p.amount}</td>
-                  <td className="px-4 font-mono-id text-on-surface-variant">{p.date}</td>
-                  <td className="px-4">
-                    <span className={clsx("inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold", p.statusClass)}>{p.status}</span>
-                  </td>
+        {loading ? (
+          <div className="p-8 text-center text-secondary">Yükleniyor...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-background border-b border-outline-variant">
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Ödeme ID</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Sipariş ID</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Yöntem</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4 text-right">Tutar</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Tarih</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Durum</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {getFilteredPayments().length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-on-surface-variant">Ödeme bulunamadı</td>
+                  </tr>
+                ) : (
+                  getFilteredPayments().map((p) => (
+                    <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors cursor-pointer" onClick={() => window.location.href = `/finance/payments/${p.id}`}>
+                      <td className="px-4 font-mono-id text-on-surface">{p.id.substring(0, 8)}...</td>
+                      <td className="px-4 font-mono-id text-primary">{p.orderId ? p.orderId.substring(0, 8) + '...' : '-'}</td>
+                      <td className="px-4 font-body-sm text-on-surface-variant">{p.method}</td>
+                      <td className="px-4 text-right font-mono-id tabular-nums">{p.amount?.toFixed(2)} {p.currency}</td>
+                      <td className="px-4 font-mono-id text-on-surface-variant">{new Date(p.createdAt).toLocaleDateString('tr-TR')}</td>
+                      <td className="px-4">
+                        <span className={clsx("inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase", STATUS_CLASSES[p.status] || "bg-outline-variant text-surface")}>
+                          {p.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

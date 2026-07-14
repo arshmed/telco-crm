@@ -1,5 +1,7 @@
 package com.telcocrm.paymentservice.service.impl;
 
+import com.telcocrm.paymentservice.client.MockPspClient;
+import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.entity.Payment;
 import com.telcocrm.paymentservice.entity.PaymentAttempt;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
@@ -7,6 +9,7 @@ import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentCompletedEvent;
+import com.telcocrm.paymentservice.event.publish.PaymentFailedEvent;
 import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
@@ -18,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -29,6 +31,7 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
+    private final MockPspClient mockPspClient;
 
     @Override
     @Transactional
@@ -49,27 +52,42 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
 
         paymentRepository.save(payment);
 
-        // TODO: mock PSP entegrasyonu buraya eklenecek, şimdilik her ödeme başarılı sayılıyor
+        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod());
+
         PaymentAttempt attempt = PaymentAttempt.builder()
                 .attemptNo(1)
-                .response("MOCK_PSP_APPROVED")
+                .response(chargeResult.success() ? "MOCK_PSP_APPROVED" : chargeResult.failureReason())
                 .attemptedAt(Instant.now())
                 .build();
         payment.addAttempt(attempt);
         paymentAttemptRepository.save(attempt);
 
-        payment.setStatus(PaymentStatus.COMPLETED);
-        payment.setPaidAt(Instant.now());
-        payment.setExternalRef("MOCK-REF-" + UUID.randomUUID());
+        if (chargeResult.success()) {
+            payment.setStatus(PaymentStatus.COMPLETED);
+            payment.setPaidAt(Instant.now());
+            payment.setExternalRef(chargeResult.externalRef());
 
-        paymentRepository.save(payment);
+            paymentRepository.save(payment);
 
-        outboxService.saveEvent(
-            "PAYMENT",
-            payment.getId().toString(),
-            "payment-completed-topic",
-            PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
-        );
+            outboxService.saveEvent(
+                "PAYMENT",
+                payment.getId().toString(),
+                "payment-completed-topic",
+                PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
+            );
+        } else {
+            payment.setStatus(PaymentStatus.FAILED);
+            payment.setFailureReason(chargeResult.failureReason());
+
+            paymentRepository.save(payment);
+
+            outboxService.saveEvent(
+                "PAYMENT",
+                payment.getId().toString(),
+                "payment-failed-topic",
+                PaymentFailedEvent.of(payment.getOrderId(), chargeResult.failureReason())
+            );
+        }
 
         processedEventRepository.save(
             ProcessedEvent.builder()
@@ -78,6 +96,7 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
                 .build()
         );
 
-        log.info("OrderCreated processed, payment completed for orderId: {}", event.orderId());
+        log.info("OrderCreated processed, payment {} for orderId: {}",
+                chargeResult.success() ? "completed" : "failed", event.orderId());
     }
 }

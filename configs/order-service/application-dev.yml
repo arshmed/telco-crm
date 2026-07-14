@@ -5,6 +5,15 @@ spring:
                 jwt:
                     issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
                     jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+            client:
+                registration:
+                    keycloak:
+                        client-id: order-service
+                        client-secret: order-service-secret
+                        authorization-grant-type: client_credentials
+                provider:
+                    keycloak:
+                        token-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/token
     datasource:
         url: jdbc:postgresql://localhost:5404/orders
         username: postgres

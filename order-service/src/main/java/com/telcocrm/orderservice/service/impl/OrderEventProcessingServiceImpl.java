@@ -4,8 +4,10 @@ import com.telcocrm.orderservice.client.CustomerClient;
 import com.telcocrm.orderservice.client.dto.CustomerResponse;
 import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.ProcessedEvent;
+import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.consume.PaymentCompletedEvent;
 import com.telcocrm.orderservice.event.consume.PaymentFailedEvent;
+import com.telcocrm.orderservice.event.consume.PaymentRefundedEvent;
 import com.telcocrm.orderservice.event.consume.SubscriptionActivatedEvent;
 import com.telcocrm.orderservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
@@ -183,11 +185,38 @@ public class OrderEventProcessingServiceImpl implements OrderEventProcessingServ
                 customer.lastName()
             )
         );
-        // TODO: payment-service refund event'i eklenecek, PaymentRefunded gelince SagaState FAILED yapılacak
 
         markProcessed(event.eventId());
 
         log.info("SubscriptionActivationFailed processed for orderId: {}", event.orderId());
+    }
+
+    @Override
+    @Transactional
+    public void processPaymentRefunded(PaymentRefundedEvent event) {
+        if (processedEventRepository.existsByEventId(event.eventId())) {
+            log.warn("PaymentRefundedEvent already processed: {}", event.eventId());
+            return;
+        }
+
+        Order order = orderRepository.findByIdAndDeletedFalse(event.orderId())
+                .orElseThrow(() -> new OrderNotFoundException(event.orderId()));
+
+        if (order.getSagaState().getCurrentStep() != SagaStep.COMPENSATING) {
+            log.warn("Skipping PaymentRefundedEvent {}: order {} saga is not COMPENSATING (currentStep={})",
+                    event.eventId(), order.getId(), order.getSagaState().getCurrentStep());
+            return;
+        }
+
+        orderStateRules.markPaymentRefunded(order);
+
+        orderRepository.save(order);
+
+        orderAuditService.log(order, "Payment refunded: paymentId=" + event.paymentId());
+
+        markProcessed(event.eventId());
+
+        log.info("PaymentRefunded processed for orderId: {}", event.orderId());
     }
 
     private void markProcessed(UUID eventId) {

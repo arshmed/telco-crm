@@ -29,7 +29,7 @@ spring:
         baseline-version: 0
     cloud:
         function:
-            definition: paymentCompletedEvent;paymentFailedEvent;subscriptionActivatedEvent;subscriptionActivationFailedEvent
+            definition: paymentCompletedEvent;paymentFailedEvent;subscriptionActivatedEvent;subscriptionActivationFailedEvent;paymentRefundedEvent
         stream:
             bindings:
                 paymentCompletedEvent-in-0:
@@ -43,6 +43,9 @@ spring:
                     content-type: application/json
                 subscriptionActivationFailedEvent-in-0:
                     destination: subscription-activation-failed-topic
+                    content-type: application/json
+                paymentRefundedEvent-in-0:
+                    destination: payment-refunded-topic
                     content-type: application/json
             kafka:
                 binder:

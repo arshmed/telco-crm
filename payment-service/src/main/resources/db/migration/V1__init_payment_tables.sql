@@ -9,6 +9,8 @@ CREATE TABLE payments (
     external_ref    VARCHAR(255),
     failure_reason  VARCHAR(500),
     paid_at         TIMESTAMP,
+    retry_count     INTEGER       NOT NULL DEFAULT 0,
+    next_retry_at   TIMESTAMP,
     created_at      TIMESTAMP     NOT NULL,
     updated_at      TIMESTAMP     NOT NULL,
     version         BIGINT        NOT NULL DEFAULT 0

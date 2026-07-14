@@ -10,7 +10,6 @@ import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentCompletedEvent;
-import com.telcocrm.paymentservice.event.publish.PaymentFailedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
 import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
@@ -23,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Service
@@ -80,15 +80,10 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason(chargeResult.failureReason());
+            payment.setRetryCount(1);
+            payment.setNextRetryAt(Instant.now().plus(24, ChronoUnit.HOURS));
 
             paymentRepository.save(payment);
-
-            outboxService.saveEvent(
-                "PAYMENT",
-                payment.getId().toString(),
-                "payment-failed-topic",
-                PaymentFailedEvent.of(payment.getOrderId(), chargeResult.failureReason())
-            );
         }
 
         processedEventRepository.save(

@@ -58,6 +58,13 @@ public class Payment {
     @Column
     private Instant paidAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
+
+    @Column
+    private Instant nextRetryAt;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

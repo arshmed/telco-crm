@@ -2,16 +2,22 @@ package com.telcocrm.subscriptionservice.service;
 
 import com.telcocrm.subscriptionservice.client.CustomerClient;
 import com.telcocrm.subscriptionservice.client.ProductCatalogClient;
+import com.telcocrm.subscriptionservice.client.dto.AddonResponse;
 import com.telcocrm.subscriptionservice.client.dto.CustomerResponse;
 import com.telcocrm.subscriptionservice.client.dto.TariffResponse;
+import com.telcocrm.subscriptionservice.dto.request.AddAddonRequest;
+import com.telcocrm.subscriptionservice.dto.request.ChangeTariffRequest;
 import com.telcocrm.subscriptionservice.dto.request.CreateSubscriptionRequest;
+import com.telcocrm.subscriptionservice.dto.response.SubscriptionAddonResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionResponse;
 import com.telcocrm.subscriptionservice.entity.Subscription;
+import com.telcocrm.subscriptionservice.entity.SubscriptionAddon;
 import com.telcocrm.subscriptionservice.enums.SubscriptionStatus;
 import com.telcocrm.subscriptionservice.exception.InvalidStateTransitionException;
 import com.telcocrm.subscriptionservice.exception.MsisdnAlreadyInUseException;
 import com.telcocrm.subscriptionservice.exception.SubscriptionNotFoundException;
 import com.telcocrm.subscriptionservice.mapper.SubscriptionMapper;
+import com.telcocrm.subscriptionservice.repository.SubscriptionAddonRepository;
 import com.telcocrm.subscriptionservice.repository.SubscriptionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +40,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private SubscriptionRepository subscriptionRepository;
+
+    @Mock
+    private SubscriptionAddonRepository subscriptionAddonRepository;
 
     @Mock
     private OutboxService outboxService;
@@ -251,6 +260,68 @@ class SubscriptionServiceTest {
 
         assertThat(result).isNotNull();
         verify(subscriptionRepository).save(any(Subscription.class));
+    }
+
+    @Test
+    void changeTariff_success() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        ChangeTariffRequest request = new ChangeTariffRequest("TARIFE-002");
+        when(subscriptionRepository.findById(subscription.getId())).thenReturn(Optional.of(subscription));
+        when(productCatalogClient.getTariff("TARIFE-002")).thenReturn(mock(TariffResponse.class));
+        when(subscriptionRepository.save(any(Subscription.class))).thenReturn(subscription);
+        when(subscriptionMapper.toResponse(any())).thenReturn(subscriptionResponse);
+
+        SubscriptionResponse result = subscriptionService.changeTariff(subscription.getId(), request);
+
+        assertThat(result).isNotNull();
+        assertThat(subscription.getTariffCode()).isEqualTo("TARIFE-002");
+        verify(outboxService).saveEvent(eq("SUBSCRIPTION"), eq(subscription.getId().toString()),
+                eq("tariff-changed-topic"), any());
+    }
+
+    @Test
+    void changeTariff_notActive_throwsException() {
+        subscription.setStatus(SubscriptionStatus.PENDING);
+        ChangeTariffRequest request = new ChangeTariffRequest("TARIFE-002");
+        when(subscriptionRepository.findById(subscription.getId())).thenReturn(Optional.of(subscription));
+
+        assertThatThrownBy(() -> subscriptionService.changeTariff(subscription.getId(), request))
+                .isInstanceOf(InvalidStateTransitionException.class);
+        verifyNoInteractions(productCatalogClient);
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void addAddon_success() {
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        AddAddonRequest request = new AddAddonRequest("ADDON-5GB");
+        when(subscriptionRepository.findById(subscription.getId())).thenReturn(Optional.of(subscription));
+        when(productCatalogClient.getAddon("ADDON-5GB")).thenReturn(mock(AddonResponse.class));
+        when(subscriptionAddonRepository.save(any(SubscriptionAddon.class))).thenAnswer(invocation -> {
+            SubscriptionAddon addon = invocation.getArgument(0);
+            addon.setId(UUID.randomUUID());
+            addon.setAddedAt(LocalDateTime.now());
+            return addon;
+        });
+
+        SubscriptionAddonResponse result = subscriptionService.addAddon(subscription.getId(), request);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getAddonCode()).isEqualTo("ADDON-5GB");
+        verify(outboxService).saveEvent(eq("SUBSCRIPTION"), eq(subscription.getId().toString()),
+                eq("addon-purchased-topic"), any());
+    }
+
+    @Test
+    void addAddon_notActive_throwsException() {
+        subscription.setStatus(SubscriptionStatus.SUSPENDED);
+        AddAddonRequest request = new AddAddonRequest("ADDON-5GB");
+        when(subscriptionRepository.findById(subscription.getId())).thenReturn(Optional.of(subscription));
+
+        assertThatThrownBy(() -> subscriptionService.addAddon(subscription.getId(), request))
+                .isInstanceOf(InvalidStateTransitionException.class);
+        verifyNoInteractions(productCatalogClient);
+        verify(subscriptionAddonRepository, never()).save(any());
     }
 
     @Test

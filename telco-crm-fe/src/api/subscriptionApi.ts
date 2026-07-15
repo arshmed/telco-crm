@@ -76,6 +76,27 @@ export const terminateSubscription = async (id: string): Promise<SubscriptionRes
   return response.data;
 };
 
+export interface SubscriptionAddonResponse {
+  id: string;
+  addonCode: string;
+  addedAt: string;
+}
+
+export const changeTariff = async (id: string, tariffCode: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.patch<SubscriptionResponse>(`/api/v1/subscriptions/${id}/tariff`, { tariffCode });
+  return response.data;
+};
+
+export const addAddonToSubscription = async (id: string, addonCode: string): Promise<SubscriptionAddonResponse> => {
+  const response = await apiClient.post<SubscriptionAddonResponse>(`/api/v1/subscriptions/${id}/addons`, { addonCode });
+  return response.data;
+};
+
+export const getSubscriptionAddons = async (id: string): Promise<SubscriptionAddonResponse[]> => {
+  const response = await apiClient.get<SubscriptionAddonResponse[]>(`/api/v1/subscriptions/${id}/addons`);
+  return response.data;
+};
+
 export interface SubscriptionStats {
   active: number;
   suspended: number;

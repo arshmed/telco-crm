@@ -1,7 +1,10 @@
 package com.telcocrm.subscriptionservice.controller;
 
+import com.telcocrm.subscriptionservice.dto.request.AddAddonRequest;
+import com.telcocrm.subscriptionservice.dto.request.ChangeTariffRequest;
 import com.telcocrm.subscriptionservice.dto.request.CreateSubscriptionRequest;
 import com.telcocrm.subscriptionservice.dto.response.MonthlyActivationResponse;
+import com.telcocrm.subscriptionservice.dto.response.SubscriptionAddonResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionStatsResponse;
 import com.telcocrm.subscriptionservice.dto.response.TariffDistributionResponse;
@@ -91,5 +94,22 @@ public class SubscriptionController {
     @PostMapping("/{id}/terminate")
     public ResponseEntity<SubscriptionResponse> terminate(@PathVariable UUID id) {
         return ResponseEntity.ok(subscriptionService.terminateSubscription(id));
+    }
+
+    @PatchMapping("/{id}/tariff")
+    public ResponseEntity<SubscriptionResponse> changeTariff(
+            @PathVariable UUID id, @Valid @RequestBody ChangeTariffRequest request) {
+        return ResponseEntity.ok(subscriptionService.changeTariff(id, request));
+    }
+
+    @PostMapping("/{id}/addons")
+    public ResponseEntity<SubscriptionAddonResponse> addAddon(
+            @PathVariable UUID id, @Valid @RequestBody AddAddonRequest request) {
+        return ResponseEntity.status(201).body(subscriptionService.addAddon(id, request));
+    }
+
+    @GetMapping("/{id}/addons")
+    public ResponseEntity<List<SubscriptionAddonResponse>> getAddons(@PathVariable UUID id) {
+        return ResponseEntity.ok(subscriptionService.getAddons(id));
     }
 }

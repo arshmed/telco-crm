@@ -8,7 +8,12 @@ import {
   suspendSubscription,
   reactivateSubscription,
   terminateSubscription,
+  changeTariff,
+  addAddonToSubscription,
+  getSubscriptionAddons,
+  SubscriptionAddonResponse,
 } from "../api/subscriptionApi";
+import { getTariffs, getAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
 
 export default function SubscriptionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +25,14 @@ export default function SubscriptionDetail() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState("Genel Bakış");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [availableTariffs, setAvailableTariffs] = useState<TariffResponse[]>([]);
+  const [availableAddons, setAvailableAddons] = useState<AddonResponse[]>([]);
+  const [subscriptionAddons, setSubscriptionAddons] = useState<SubscriptionAddonResponse[]>([]);
+  const [showTariffPicker, setShowTariffPicker] = useState(false);
+  const [showAddonPicker, setShowAddonPicker] = useState(false);
+  const [selectedTariffCode, setSelectedTariffCode] = useState("");
+  const [selectedAddonCode, setSelectedAddonCode] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -48,6 +61,50 @@ export default function SubscriptionDetail() {
       .finally(() => setLoadingHistory(false));
   }, [activeTab, id]);
 
+  useEffect(() => {
+    if (!id) return;
+    getSubscriptionAddons(id).then(setSubscriptionAddons).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (!subscription) return;
+    getTariffs()
+      .then((data) => setAvailableTariffs((data.content || []).filter((t) => t.code !== subscription.tariffCode)))
+      .catch(() => {});
+    getAddons(subscription.tariffCode).then(setAvailableAddons).catch(() => {});
+  }, [subscription?.tariffCode]);
+
+  const handleChangeTariff = async () => {
+    if (!id || !selectedTariffCode) return;
+    setActionLoading(true);
+    try {
+      const updated = await changeTariff(id, selectedTariffCode);
+      setSubscription(updated);
+      setShowTariffPicker(false);
+      setSelectedTariffCode("");
+    } catch {
+      alert("Tarife değiştirilirken bir hata oluştu.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddAddon = async () => {
+    if (!id || !selectedAddonCode) return;
+    setActionLoading(true);
+    try {
+      await addAddonToSubscription(id, selectedAddonCode);
+      const updated = await getSubscriptionAddons(id);
+      setSubscriptionAddons(updated);
+      setShowAddonPicker(false);
+      setSelectedAddonCode("");
+    } catch {
+      alert("Ek paket eklenirken bir hata oluştu.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleAction = async (action: () => Promise<SubscriptionResponse>) => {
     setActionLoading(true);
     try {
@@ -72,10 +129,6 @@ export default function SubscriptionDetail() {
   const internetOffset = circumference - (internetPct * circumference);
   const dakikaOffset = circumference - (minutesPct * circumference);
   const smsOffset = circumference - (smsPct * circumference);
-
-  const handleBuyAddon = () => {
-    alert("5GB Ek İnternet Paketi hatta tanımlandı.");
-  };
 
   const formatPeriod = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -235,10 +288,67 @@ export default function SubscriptionDetail() {
                     <span className="font-label-md text-on-surface">{subscription?.tariffCode || quota?.tariffCode || "-"}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-auto">
-                  <button className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors text-center">Tarife Değiştir</button>
-                  <button onClick={handleBuyAddon} className="flex-1 py-2 bg-surface border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors text-center">Ek Paket Ekle (5GB)</button>
-                </div>
+
+                {subscriptionAddons.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="font-body-sm text-on-surface-variant">Ek Paketler</span>
+                    <ul className="flex flex-col gap-1">
+                      {subscriptionAddons.map((a) => (
+                        <li key={a.id} className="font-label-sm text-on-surface flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-primary">add_circle</span>
+                          {a.addonCode}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {subscription?.status !== 'ACTIVE' ? (
+                  <p className="font-body-sm text-secondary">Tarife/paket değişikliği yalnızca aktif abonelikler için yapılabilir.</p>
+                ) : showTariffPicker ? (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={selectedTariffCode}
+                      onChange={(e) => setSelectedTariffCode(e.target.value)}
+                      className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none"
+                    >
+                      <option value="">Yeni tarife seçin</option>
+                      {availableTariffs.map((t) => (
+                        <option key={t.code} value={t.code}>{t.name} (₺{t.monthlyFee})</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleChangeTariff} disabled={!selectedTariffCode || actionLoading}
+                        className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors disabled:opacity-50">Onayla</button>
+                      <button onClick={() => { setShowTariffPicker(false); setSelectedTariffCode(""); }}
+                        className="flex-1 py-2 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors">Vazgeç</button>
+                    </div>
+                  </div>
+                ) : showAddonPicker ? (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={selectedAddonCode}
+                      onChange={(e) => setSelectedAddonCode(e.target.value)}
+                      className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none"
+                    >
+                      <option value="">Eklenecek paket seçin</option>
+                      {availableAddons.map((a) => (
+                        <option key={a.code} value={a.code}>{a.name} (₺{a.price})</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleAddAddon} disabled={!selectedAddonCode || actionLoading}
+                        className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors disabled:opacity-50">Onayla</button>
+                      <button onClick={() => { setShowAddonPicker(false); setSelectedAddonCode(""); }}
+                        className="flex-1 py-2 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors">Vazgeç</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={() => setShowTariffPicker(true)} className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors text-center">Tarife Değiştir</button>
+                    <button onClick={() => setShowAddonPicker(true)} className="flex-1 py-2 bg-surface border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors text-center">Ek Paket Ekle</button>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -2,17 +2,22 @@ package com.telcocrm.subscriptionservice.service;
 
 import com.telcocrm.subscriptionservice.client.CustomerClient;
 import com.telcocrm.subscriptionservice.client.ProductCatalogClient;
+import com.telcocrm.subscriptionservice.dto.request.AddAddonRequest;
+import com.telcocrm.subscriptionservice.dto.request.ChangeTariffRequest;
 import com.telcocrm.subscriptionservice.dto.request.CreateSubscriptionRequest;
 import com.telcocrm.subscriptionservice.dto.response.MonthlyActivationResponse;
+import com.telcocrm.subscriptionservice.dto.response.SubscriptionAddonResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionStatsResponse;
 import com.telcocrm.subscriptionservice.dto.response.TariffDistributionResponse;
 import com.telcocrm.subscriptionservice.entity.Subscription;
+import com.telcocrm.subscriptionservice.entity.SubscriptionAddon;
 import com.telcocrm.subscriptionservice.enums.SubscriptionStatus;
 import com.telcocrm.subscriptionservice.exception.InvalidStateTransitionException;
 import com.telcocrm.subscriptionservice.exception.MsisdnAlreadyInUseException;
 import com.telcocrm.subscriptionservice.exception.SubscriptionNotFoundException;
 import com.telcocrm.subscriptionservice.mapper.SubscriptionMapper;
+import com.telcocrm.subscriptionservice.repository.SubscriptionAddonRepository;
 import com.telcocrm.subscriptionservice.repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionAddonRepository subscriptionAddonRepository;
     private final OutboxService outboxService;
     private final CustomerClient customerClient;
     private final ProductCatalogClient productCatalogClient;
@@ -110,6 +116,75 @@ public class SubscriptionService {
         Subscription saved = subscriptionRepository.save(subscription);
         log.info("Subscription reactivated: {}", saved.getId());
         return subscriptionMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public SubscriptionResponse changeTariff(UUID id, ChangeTariffRequest request) {
+        Subscription subscription = getSubscriptionEntity(id);
+        if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
+            throw new InvalidStateTransitionException(
+                    "Cannot change tariff for subscription in status: " + subscription.getStatus());
+        }
+
+        // Yeni tarifenin var/aktif olduğunu doğrula — bulunamazsa Feign 404 fırlatır
+        productCatalogClient.getTariff(request.getTariffCode());
+
+        String oldTariffCode = subscription.getTariffCode();
+        subscription.setTariffCode(request.getTariffCode());
+        Subscription saved = subscriptionRepository.save(subscription);
+
+        outboxService.saveEvent(
+                "SUBSCRIPTION",
+                saved.getId().toString(),
+                "tariff-changed-topic",
+                buildTariffChangedEvent(saved, oldTariffCode)
+        );
+
+        log.info("Subscription {} tariff changed from {} to {}", saved.getId(), oldTariffCode, request.getTariffCode());
+        return subscriptionMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public SubscriptionAddonResponse addAddon(UUID id, AddAddonRequest request) {
+        Subscription subscription = getSubscriptionEntity(id);
+        if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
+            throw new InvalidStateTransitionException(
+                    "Cannot add addon to subscription in status: " + subscription.getStatus());
+        }
+
+        // Addon'un var/aktif olduğunu doğrula — bulunamazsa Feign 404 fırlatır
+        productCatalogClient.getAddon(request.getAddonCode());
+
+        SubscriptionAddon addon = SubscriptionAddon.builder()
+                .subscriptionId(subscription.getId())
+                .addonCode(request.getAddonCode())
+                .build();
+        SubscriptionAddon saved = subscriptionAddonRepository.save(addon);
+
+        outboxService.saveEvent(
+                "SUBSCRIPTION",
+                subscription.getId().toString(),
+                "addon-purchased-topic",
+                buildAddonPurchasedEvent(subscription, request.getAddonCode())
+        );
+
+        log.info("Addon {} added to subscription {}", request.getAddonCode(), subscription.getId());
+        return SubscriptionAddonResponse.builder()
+                .id(saved.getId())
+                .addonCode(saved.getAddonCode())
+                .addedAt(saved.getAddedAt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubscriptionAddonResponse> getAddons(UUID subscriptionId) {
+        return subscriptionAddonRepository.findBySubscriptionId(subscriptionId).stream()
+                .map(a -> SubscriptionAddonResponse.builder()
+                        .id(a.getId())
+                        .addonCode(a.getAddonCode())
+                        .addedAt(a.getAddedAt())
+                        .build())
+                .toList();
     }
 
     @Transactional
@@ -283,6 +358,27 @@ public class SubscriptionService {
         event.put("eventId", UUID.randomUUID().toString());
         event.put("orderId", orderId.toString());
         event.put("reason", reason);
+        event.put("occurredAt", LocalDateTime.now().toString());
+        return event;
+    }
+
+    private Map<String, Object> buildTariffChangedEvent(Subscription subscription, String oldTariffCode) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventId", UUID.randomUUID().toString());
+        event.put("subscriptionId", subscription.getId().toString());
+        event.put("customerId", subscription.getCustomerId().toString());
+        event.put("oldTariffCode", oldTariffCode);
+        event.put("newTariffCode", subscription.getTariffCode());
+        event.put("occurredAt", LocalDateTime.now().toString());
+        return event;
+    }
+
+    private Map<String, Object> buildAddonPurchasedEvent(Subscription subscription, String addonCode) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("eventId", UUID.randomUUID().toString());
+        event.put("subscriptionId", subscription.getId().toString());
+        event.put("customerId", subscription.getCustomerId().toString());
+        event.put("addonCode", addonCode);
         event.put("occurredAt", LocalDateTime.now().toString());
         return event;
     }

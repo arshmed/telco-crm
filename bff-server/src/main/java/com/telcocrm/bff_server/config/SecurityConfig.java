@@ -6,15 +6,18 @@ import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -36,6 +39,18 @@ public class SecurityConfig {
                 auth -> auth.requestMatchers(HttpMethod.OPTIONS).permitAll() // Preflight CORS isteklerine izin ver
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
+            // /api/** isteklerinde oturum geçersizse Keycloak'a redirect ATMA, düz 401 dön.
+            // SPA ayrı origin'de (Vite, :5173) çalıştığı için bff'in kendisi hiçbir zaman
+            // gerçek bir sayfa navigasyonu görmüyor — buraya gelen her şey axios/fetch.
+            // Varsayılan oauth2Login entry point'i XHR'a da redirect atmaya çalışınca
+            // tarayıcı bunu cross-origin bir istek zinciri sayıp Keycloak'ın /auth
+            // endpoint'ine CORS preflight (OPTIONS) atıyor, Keycloak 405 döndürüyor,
+            // istek CORS hatasıyla patlıyor ve frontend'in "401 ise login'e yönlendir"
+            // mantığı hiç tetiklenmiyor (error.response undefined kalıyor).
+            .exceptionHandling(exceptions -> exceptions
+                    .defaultAuthenticationEntryPointFor(
+                            new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                            PathPatternRequestMatcher.pathPattern("/api/**")))
             .oauth2Login(oauth2 -> oauth2
                     .defaultSuccessUrl("http://localhost:5173", true))
             .logout(logout -> logout.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))

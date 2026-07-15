@@ -1,5 +1,6 @@
 package com.telcocrm.paymentservice.controller;
 
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.service.PaymentService;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.UUID;
 
 @RestController
@@ -19,10 +21,10 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @GetMapping
-    public ResponseEntity<Page<PaymentResponse>> getAllPayments(Pageable pageable) {
-        Page<PaymentResponse> response = paymentService.getAllPayments(pageable);
-        return ResponseEntity.ok(response);
+    @PostMapping
+    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
+        PaymentResponse response = paymentService.createPayment(request);
+        return ResponseEntity.created(URI.create("/api/v1/payments/" + response.id())).body(response);
     }
 
     @GetMapping("/{id}")

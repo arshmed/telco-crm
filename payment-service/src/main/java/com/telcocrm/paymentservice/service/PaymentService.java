@@ -1,6 +1,6 @@
 package com.telcocrm.paymentservice.service;
 
-import com.telcocrm.paymentservice.dto.request.InitiatePaymentRequest;
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import org.springframework.data.domain.Page;
@@ -16,5 +16,5 @@ public interface PaymentService {
 
     PaymentResponse refundPayment(UUID paymentId, RefundRequest request);
 
-    PaymentResponse initiatePayment(InitiatePaymentRequest request);
+    PaymentResponse createPayment(CreatePaymentRequest request);
 }

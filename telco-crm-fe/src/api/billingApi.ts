@@ -44,6 +44,14 @@ export interface BillRunResponse {
   status: string;
 }
 
+export interface InvoiceStats {
+  overdueCount: number;
+  paidCount: number;
+  issuedCount: number;
+  totalCount: number;
+  totalRevenue: number;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -76,6 +84,11 @@ export const billingApi = {
     const params: Record<string, string> = {};
     if (asOf) params.asOf = asOf;
     const { data } = await apiClient.post(`/api/v1/billing/runs`, null, { params });
+    return data;
+  },
+
+  getInvoiceStats: async (): Promise<InvoiceStats> => {
+    const { data } = await apiClient.get<InvoiceStats>('/api/v1/invoices/stats');
     return data;
   },
 };

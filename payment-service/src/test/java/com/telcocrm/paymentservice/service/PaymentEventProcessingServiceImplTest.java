@@ -36,6 +36,8 @@ class PaymentEventProcessingServiceImplTest {
     private ProcessedEventRepository processedEventRepository;
     @Mock
     private OutboxService outboxService;
+    @Mock
+    private PaymentAuditService paymentAuditService;
 
     @InjectMocks
     private PaymentEventProcessingServiceImpl eventProcessingService;

@@ -8,6 +8,7 @@ import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentAuditService;
 import com.telcocrm.paymentservice.service.PaymentEventProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,10 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
     private final PaymentRepository paymentRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
+    private final PaymentAuditService paymentAuditService;
+
+    // Not: processOrderCreated (order oluşunca otomatik ödeme tetikleyicisi) kasıtlı olarak yok.
+    // Ödeme artık kullanıcı tetiklemeli — PaymentServiceImpl.createPayment() üzerinden REST ile başlıyor.
 
     @Override
     @Transactional
@@ -56,6 +61,9 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
             "payment-refunded-topic",
             PaymentRefundedEvent.of(payment.getOrderId(), payment.getId(), payment.getAmount())
         );
+
+        paymentAuditService.log(payment,
+                "Payment refunded due to subscription activation failure for orderId: " + event.orderId());
 
         processedEventRepository.save(
             ProcessedEvent.builder()

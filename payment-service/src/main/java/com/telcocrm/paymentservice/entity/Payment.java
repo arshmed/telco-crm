@@ -28,6 +28,9 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(unique = true)
+    private String paymentRequestId;
+
     @Column(nullable = false)
     private UUID orderId;
 
@@ -57,6 +60,13 @@ public class Payment {
 
     @Column
     private Instant paidAt;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
+
+    @Column
+    private Instant nextRetryAt;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)

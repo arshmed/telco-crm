@@ -33,6 +33,7 @@ export interface RefundRequest {
 }
 
 export interface CreatePaymentRequest {
+  paymentRequestId: string;
   orderId: string;
   method: 'CREDIT_CARD' | 'BANK_TRANSFER' | 'WALLET';
   cardHolder: string;

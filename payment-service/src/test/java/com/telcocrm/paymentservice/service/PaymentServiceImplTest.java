@@ -1,15 +1,12 @@
 package com.telcocrm.paymentservice.service;
 
-import com.telcocrm.paymentservice.client.MockPspClient;
 import com.telcocrm.paymentservice.client.OrderClient;
 import com.telcocrm.paymentservice.client.dto.OrderResponse;
 import com.telcocrm.paymentservice.client.dto.PspChargeResult;
-import com.telcocrm.paymentservice.config.PaymentAuditListener;
-import com.telcocrm.paymentservice.dto.request.InitiatePaymentRequest;
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.entity.Payment;
-import com.telcocrm.paymentservice.entity.PaymentAttempt;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.exception.OrderNotPayableException;
@@ -17,7 +14,6 @@ import com.telcocrm.paymentservice.exception.PaymentAlreadyProcessedException;
 import com.telcocrm.paymentservice.exception.PaymentNotFoundException;
 import com.telcocrm.paymentservice.exception.PaymentRefundException;
 import com.telcocrm.paymentservice.mapper.PaymentMapper;
-import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.Test;
@@ -44,17 +40,15 @@ class PaymentServiceImplTest {
     @Mock
     private PaymentRepository paymentRepository;
     @Mock
-    private PaymentAttemptRepository paymentAttemptRepository;
-    @Mock
     private PaymentMapper paymentMapper;
     @Mock
     private OutboxService outboxService;
     @Mock
-    private PaymentAuditListener auditListener;
-    @Mock
     private OrderClient orderClient;
     @Mock
-    private MockPspClient mockPspClient;
+    private PaymentProcessingHelper paymentProcessingHelper;
+    @Mock
+    private PaymentAuditService paymentAuditService;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -102,7 +96,7 @@ class PaymentServiceImplTest {
         verify(paymentRepository).save(payment);
         verify(outboxService).saveEvent(eq("PAYMENT"), eq(paymentId.toString()),
                 eq("payment-refunded-topic"), any());
-        verify(auditListener).logUpdate(eq("Payment"), eq(paymentId.toString()), any(), any());
+        verify(paymentAuditService).log(eq(payment), any());
     }
 
     @Test
@@ -142,100 +136,107 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void initiatePayment_shouldCompleteOnSuccessfulCharge() {
+    void createPayment_shouldCompleteOnSuccessfulCharge() {
         UUID orderId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
-        InitiatePaymentRequest request = new InitiatePaymentRequest(
-                orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
 
         OrderResponse order = new OrderResponse(orderId, customerId, "PENDING_PAYMENT", new BigDecimal("149.99"), "TRY");
 
+        when(paymentRepository.findByPaymentRequestId("req-1")).thenReturn(Optional.empty());
         when(orderClient.getOrderById(orderId)).thenReturn(order);
         when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
-            Payment p = invocation.getArgument(0);
-            if (p.getId() == null) {
-                p.setId(UUID.randomUUID());
-            }
-            return p;
-        });
-        when(mockPspClient.charge(any(), any(), any()))
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentProcessingHelper.attemptInitialCharge(any(Payment.class), eq(VALID_CARD_NUMBER)))
                 .thenReturn(new PspChargeResult(true, "MOCK-REF-123", null));
-        when(paymentAttemptRepository.save(any(PaymentAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(paymentMapper.toResponse(any(Payment.class))).thenReturn(buildPaymentResponse(UUID.randomUUID(), PaymentStatus.COMPLETED));
 
-        PaymentResponse result = paymentService.initiatePayment(request);
+        PaymentResponse result = paymentService.createPayment(request);
 
         assertThat(result).isNotNull();
-        verify(outboxService).saveEvent(eq("PAYMENT"), any(), eq("payment-completed-topic"), any());
+        verify(paymentAuditService).log(any(Payment.class), any());
     }
 
     @Test
-    void initiatePayment_shouldFailOnDeclinedTestCard() {
+    void createPayment_shouldReplayExistingPaymentRequestId() {
         UUID orderId = UUID.randomUUID();
-        InitiatePaymentRequest request = new InitiatePaymentRequest(
-                orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", "4000000000000002", "12/99", "123");
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
 
-        OrderResponse order = new OrderResponse(orderId, UUID.randomUUID(), "PENDING_PAYMENT", new BigDecimal("149.99"), "TRY");
+        Payment existing = buildPayment(UUID.randomUUID(), PaymentStatus.COMPLETED);
+        when(paymentRepository.findByPaymentRequestId("req-1")).thenReturn(Optional.of(existing));
+        when(paymentMapper.toResponse(existing)).thenReturn(buildPaymentResponse(existing.getId(), PaymentStatus.COMPLETED));
 
-        when(orderClient.getOrderById(orderId)).thenReturn(order);
-        when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
-            Payment p = invocation.getArgument(0);
-            if (p.getId() == null) {
-                p.setId(UUID.randomUUID());
-            }
-            return p;
-        });
-        when(mockPspClient.charge(any(), any(), any()))
-                .thenReturn(new PspChargeResult(false, null, "Card declined"));
-        when(paymentAttemptRepository.save(any(PaymentAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentMapper.toResponse(any(Payment.class))).thenReturn(buildPaymentResponse(UUID.randomUUID(), PaymentStatus.FAILED));
+        paymentService.createPayment(request);
 
-        paymentService.initiatePayment(request);
-
-        verify(outboxService).saveEvent(eq("PAYMENT"), any(), eq("payment-failed-topic"), any());
-        verify(outboxService, never()).saveEvent(eq("PAYMENT"), any(), eq("payment-completed-topic"), any());
+        verifyNoInteractions(orderClient);
+        verify(paymentRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void initiatePayment_shouldRejectInvalidLuhnCardNumber() {
-        InitiatePaymentRequest request = new InitiatePaymentRequest(
-                UUID.randomUUID(), PaymentMethod.CREDIT_CARD, "Ali Veli", "1234567812345678", "12/99", "123");
+    void createPayment_shouldRejectInvalidLuhnCardNumber() {
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", UUID.randomUUID(), PaymentMethod.CREDIT_CARD, "Ali Veli", "1234567812345678", "12/99", "123");
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(request))
+        assertThatThrownBy(() -> paymentService.createPayment(request))
                 .isInstanceOf(IllegalArgumentException.class);
 
         verifyNoInteractions(orderClient);
     }
 
     @Test
-    void initiatePayment_shouldThrowWhenOrderNotPayable() {
+    void createPayment_shouldThrowWhenOrderNotPayable() {
         UUID orderId = UUID.randomUUID();
-        InitiatePaymentRequest request = new InitiatePaymentRequest(
-                orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
 
         OrderResponse order = new OrderResponse(orderId, UUID.randomUUID(), "FULFILLED", new BigDecimal("149.99"), "TRY");
+        when(paymentRepository.findByPaymentRequestId("req-1")).thenReturn(Optional.empty());
         when(orderClient.getOrderById(orderId)).thenReturn(order);
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(request))
+        assertThatThrownBy(() -> paymentService.createPayment(request))
                 .isInstanceOf(OrderNotPayableException.class);
 
-        verify(paymentRepository, never()).save(any());
+        verify(paymentRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void initiatePayment_shouldThrowWhenAlreadyCompleted() {
+    void createPayment_shouldThrowWhenAlreadyCompleted() {
         UUID orderId = UUID.randomUUID();
-        InitiatePaymentRequest request = new InitiatePaymentRequest(
-                orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
 
         OrderResponse order = new OrderResponse(orderId, UUID.randomUUID(), "PENDING_PAYMENT", new BigDecimal("149.99"), "TRY");
+        when(paymentRepository.findByPaymentRequestId("req-1")).thenReturn(Optional.empty());
         when(orderClient.getOrderById(orderId)).thenReturn(order);
         when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(buildPayment(UUID.randomUUID(), PaymentStatus.COMPLETED)));
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(request))
+        assertThatThrownBy(() -> paymentService.createPayment(request))
                 .isInstanceOf(PaymentAlreadyProcessedException.class);
+    }
+
+    @Test
+    void createPayment_shouldRetryOnPreviousFailedPayment() {
+        UUID orderId = UUID.randomUUID();
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-2", orderId, PaymentMethod.CREDIT_CARD, "Ali Veli", VALID_CARD_NUMBER, "12/99", "123");
+
+        OrderResponse order = new OrderResponse(orderId, UUID.randomUUID(), "PENDING_PAYMENT", new BigDecimal("149.99"), "TRY");
+        Payment failedPayment = buildPayment(UUID.randomUUID(), PaymentStatus.FAILED);
+        failedPayment.setOrderId(orderId);
+
+        when(paymentRepository.findByPaymentRequestId("req-2")).thenReturn(Optional.empty());
+        when(orderClient.getOrderById(orderId)).thenReturn(order);
+        when(paymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(failedPayment));
+        when(paymentProcessingHelper.attemptInitialCharge(eq(failedPayment), eq(VALID_CARD_NUMBER)))
+                .thenReturn(new PspChargeResult(true, "MOCK-REF-456", null));
+        when(paymentMapper.toResponse(failedPayment)).thenReturn(buildPaymentResponse(failedPayment.getId(), PaymentStatus.COMPLETED));
+
+        paymentService.createPayment(request);
+
+        verify(paymentRepository, never()).saveAndFlush(any());
+        assertThat(failedPayment.getPaymentRequestId()).isEqualTo("req-2");
     }
 
     private Payment buildPayment(UUID id, PaymentStatus status) {

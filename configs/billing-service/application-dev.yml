@@ -90,3 +90,11 @@ management:
   endpoint:
     health:
       show-details: always
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+  file:
+    name: logs/billing-service.log

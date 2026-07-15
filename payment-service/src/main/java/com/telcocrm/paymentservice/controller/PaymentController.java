@@ -1,6 +1,6 @@
 package com.telcocrm.paymentservice.controller;
 
-import com.telcocrm.paymentservice.dto.request.InitiatePaymentRequest;
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.service.PaymentService;
@@ -22,8 +22,8 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> initiatePayment(@Valid @RequestBody InitiatePaymentRequest request) {
-        PaymentResponse response = paymentService.initiatePayment(request);
+    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
+        PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.created(URI.create("/api/v1/payments/" + response.id())).body(response);
     }
 

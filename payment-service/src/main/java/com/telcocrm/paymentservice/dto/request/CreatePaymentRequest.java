@@ -7,26 +7,31 @@ import jakarta.validation.constraints.Pattern;
 
 import java.util.UUID;
 
-public record InitiatePaymentRequest(
+// Not: amount/currency/customerId bilerek burada YOK — client'a güvenilmez, PaymentServiceImpl
+// bunları orderId üzerinden order-service'ten (source of truth) sunucu tarafında çeker.
+public record CreatePaymentRequest(
 
-        @NotNull(message = "orderId must not be null")
+        @NotBlank
+        String paymentRequestId,
+
+        @NotNull
         UUID orderId,
 
-        @NotNull(message = "method must not be null")
+        @NotNull
         PaymentMethod method,
 
-        @NotBlank(message = "cardHolder must not be blank")
+        @NotBlank
         String cardHolder,
 
-        @NotBlank(message = "cardNumber must not be blank")
+        @NotBlank
         @Pattern(regexp = "[0-9 ]{13,23}", message = "cardNumber must contain 13-19 digits")
         String cardNumber,
 
-        @NotBlank(message = "expiryDate must not be blank")
+        @NotBlank
         @Pattern(regexp = "(0[1-9]|1[0-2])/[0-9]{2}", message = "expiryDate must be in MM/YY format")
         String expiryDate,
 
-        @NotBlank(message = "cvv must not be blank")
+        @NotBlank
         @Pattern(regexp = "[0-9]{3,4}", message = "cvv must be 3 or 4 digits")
         String cvv
 ) {}

@@ -134,7 +134,7 @@ public class OrderServiceImpl implements OrderService {
 
         if (hasIdempotencyKey) {
             try {
-                idempotencyKeyRepository.save(IdempotencyKey.builder()
+                idempotencyKeyRepository.saveAndFlush(IdempotencyKey.builder()
                         .key(idempotencyKey)
                         .orderId(order.getId())
                         .createdAt(Instant.now())

@@ -136,7 +136,7 @@ export default function Payments() {
                       ? `${customer.firstName} ${customer.lastName}`
                       : p.customerId?.substring(0, 8) + "...";
                     return (
-                      <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors">
+                      <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors cursor-pointer" onClick={() => window.location.href = `/finance/payments/${p.id}`}>
                         <td className="px-4 font-body-sm text-on-surface">{customerLabel}</td>
                         <td className="px-4 text-right font-mono-id tabular-nums">{p.amount?.toFixed(2)} {p.currency}</td>
                         <td className="px-4 font-body-sm text-on-surface-variant">{METHOD_LABELS[p.method] || p.method}</td>

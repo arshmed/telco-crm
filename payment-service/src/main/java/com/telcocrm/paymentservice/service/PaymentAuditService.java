@@ -1,8 +1,8 @@
-package com.telcocrm.orderservice.service;
+package com.telcocrm.paymentservice.service;
 
-import com.telcocrm.orderservice.entity.Order;
-import com.telcocrm.orderservice.entity.OrderAuditLog;
-import com.telcocrm.orderservice.repository.OrderAuditLogRepository;
+import com.telcocrm.paymentservice.entity.Payment;
+import com.telcocrm.paymentservice.entity.PaymentAuditLog;
+import com.telcocrm.paymentservice.repository.PaymentAuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -14,22 +14,21 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OrderAuditService {
+public class PaymentAuditService {
 
     private static final String SYSTEM_ACTOR = "SYSTEM";
 
-    private final OrderAuditLogRepository orderAuditLogRepository;
+    private final PaymentAuditLogRepository paymentAuditLogRepository;
 
-    public void log(Order order, String detail) {
-        OrderAuditLog entry = OrderAuditLog.builder()
-                .orderId(order.getId())
-                .orderStatus(order.getStatus())
-                .sagaStep(order.getSagaState().getCurrentStep())
+    public void log(Payment payment, String detail) {
+        PaymentAuditLog entry = PaymentAuditLog.builder()
+                .paymentId(payment.getId())
+                .paymentStatus(payment.getStatus())
                 .detail(detail)
                 .performedBy(resolvePerformedBy())
                 .build();
 
-        orderAuditLogRepository.save(entry);
+        paymentAuditLogRepository.save(entry);
     }
 
     private String resolvePerformedBy() {

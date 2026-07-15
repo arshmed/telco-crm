@@ -1,7 +1,10 @@
 package com.telcocrm.subscriptionservice.controller;
 
 import com.telcocrm.subscriptionservice.dto.request.CreateSubscriptionRequest;
+import com.telcocrm.subscriptionservice.dto.response.MonthlyActivationResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionResponse;
+import com.telcocrm.subscriptionservice.dto.response.SubscriptionStatsResponse;
+import com.telcocrm.subscriptionservice.dto.response.TariffDistributionResponse;
 import com.telcocrm.subscriptionservice.enums.SubscriptionStatus;
 import com.telcocrm.subscriptionservice.service.SubscriptionService;
 import jakarta.validation.Valid;
@@ -13,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -51,6 +55,22 @@ public class SubscriptionController {
     public ResponseEntity<Page<SubscriptionResponse>> getByStatus(
             @PathVariable SubscriptionStatus status, Pageable pageable) {
         return ResponseEntity.ok(subscriptionService.getSubscriptionsByStatus(status, pageable));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<SubscriptionStatsResponse> getStats() {
+        return ResponseEntity.ok(subscriptionService.getStats());
+    }
+
+    @GetMapping("/stats/monthly-activations")
+    public ResponseEntity<List<MonthlyActivationResponse>> getMonthlyActivations(
+            @RequestParam(defaultValue = "6") int months) {
+        return ResponseEntity.ok(subscriptionService.getMonthlyActivations(months));
+    }
+
+    @GetMapping("/stats/by-tariff")
+    public ResponseEntity<List<TariffDistributionResponse>> getTariffDistribution() {
+        return ResponseEntity.ok(subscriptionService.getTariffDistribution());
     }
 
     @PostMapping("/{id}/activate")

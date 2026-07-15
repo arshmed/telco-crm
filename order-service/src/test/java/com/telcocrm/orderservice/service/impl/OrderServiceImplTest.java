@@ -237,7 +237,7 @@ class OrderServiceImplTest {
         orderService.createOrder(request, "key-2");
 
         ArgumentCaptor<IdempotencyKey> keyCaptor = ArgumentCaptor.forClass(IdempotencyKey.class);
-        verify(idempotencyKeyRepository).save(keyCaptor.capture());
+        verify(idempotencyKeyRepository).saveAndFlush(keyCaptor.capture());
         assertThat(keyCaptor.getValue().getKey()).isEqualTo("key-2");
         assertThat(keyCaptor.getValue().getOrderId()).isNotNull();
     }
@@ -259,7 +259,7 @@ class OrderServiceImplTest {
             return o;
         });
         doThrow(new DataIntegrityViolationException("duplicate key"))
-                .when(idempotencyKeyRepository).save(any(IdempotencyKey.class));
+                .when(idempotencyKeyRepository).saveAndFlush(any(IdempotencyKey.class));
 
         assertThatThrownBy(() -> orderService.createOrder(request, "key-3"))
                 .isInstanceOf(DuplicateRequestException.class);

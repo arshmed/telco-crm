@@ -37,3 +37,8 @@ export const sendNotification = async (data: NotificationRequest) => {
   const response = await apiClient.post<NotificationResponse>('/api/v1/notifications', data);
   return response.data;
 };
+
+export const getRecentNotifications = async (): Promise<NotificationResponse[]> => {
+  const response = await apiClient.get<NotificationResponse[]>('/api/v1/notifications/recent');
+  return response.data;
+};

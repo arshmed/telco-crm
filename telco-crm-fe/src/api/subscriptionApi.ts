@@ -75,3 +75,36 @@ export const terminateSubscription = async (id: string): Promise<SubscriptionRes
   const response = await apiClient.post<SubscriptionResponse>(`/api/v1/subscriptions/${id}/terminate`);
   return response.data;
 };
+
+export interface SubscriptionStats {
+  active: number;
+  suspended: number;
+  pending: number;
+  terminated: number;
+  total: number;
+}
+
+export interface MonthlyActivation {
+  month: string;
+  count: number;
+}
+
+export interface TariffDistribution {
+  tariffCode: string;
+  count: number;
+}
+
+export const getSubscriptionStats = async (): Promise<SubscriptionStats> => {
+  const response = await apiClient.get<SubscriptionStats>('/api/v1/subscriptions/stats');
+  return response.data;
+};
+
+export const getMonthlyActivations = async (months: number = 6): Promise<MonthlyActivation[]> => {
+  const response = await apiClient.get<MonthlyActivation[]>(`/api/v1/subscriptions/stats/monthly-activations?months=${months}`);
+  return response.data;
+};
+
+export const getTariffDistribution = async (): Promise<TariffDistribution[]> => {
+  const response = await apiClient.get<TariffDistribution[]>('/api/v1/subscriptions/stats/by-tariff');
+  return response.data;
+};

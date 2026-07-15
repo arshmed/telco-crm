@@ -1,38 +1,35 @@
 package com.telcocrm.paymentservice.service.impl;
 
-import com.telcocrm.paymentservice.client.MockPspClient;
 import com.telcocrm.paymentservice.client.OrderClient;
 import com.telcocrm.paymentservice.client.dto.OrderResponse;
 import com.telcocrm.paymentservice.client.dto.PspChargeResult;
-import com.telcocrm.paymentservice.config.PaymentAuditListener;
-import com.telcocrm.paymentservice.dto.request.InitiatePaymentRequest;
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.entity.Payment;
-import com.telcocrm.paymentservice.entity.PaymentAttempt;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
-import com.telcocrm.paymentservice.event.publish.PaymentCompletedEvent;
-import com.telcocrm.paymentservice.event.publish.PaymentFailedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
+import com.telcocrm.paymentservice.exception.DuplicateRequestException;
 import com.telcocrm.paymentservice.exception.OrderNotPayableException;
 import com.telcocrm.paymentservice.exception.PaymentAlreadyProcessedException;
 import com.telcocrm.paymentservice.exception.PaymentNotFoundException;
 import com.telcocrm.paymentservice.exception.PaymentRefundException;
 import com.telcocrm.paymentservice.mapper.PaymentMapper;
-import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentAuditService;
+import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import com.telcocrm.paymentservice.service.PaymentService;
 import com.telcocrm.paymentservice.util.CardValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -43,12 +40,11 @@ public class PaymentServiceImpl implements PaymentService {
     private static final String PENDING_PAYMENT_STATUS = "PENDING_PAYMENT";
 
     private final PaymentRepository paymentRepository;
-    private final PaymentAttemptRepository paymentAttemptRepository;
     private final PaymentMapper paymentMapper;
     private final OutboxService outboxService;
-    private final PaymentAuditListener auditListener;
     private final OrderClient orderClient;
-    private final MockPspClient mockPspClient;
+    private final PaymentProcessingHelper paymentProcessingHelper;
+    private final PaymentAuditService paymentAuditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -75,13 +71,9 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentRefundException(paymentId, "Only completed payments can be refunded");
         }
 
-        PaymentStatus oldStatus = payment.getStatus();
         payment.setStatus(PaymentStatus.REFUNDED);
 
         paymentRepository.save(payment);
-
-        auditListener.logUpdate("Payment", payment.getId().toString(),
-                Map.of("status", oldStatus), Map.of("status", PaymentStatus.REFUNDED));
 
         outboxService.saveEvent(
                 "PAYMENT",
@@ -90,6 +82,8 @@ public class PaymentServiceImpl implements PaymentService {
                 PaymentRefundedEvent.of(payment.getOrderId(), payment.getId(), payment.getAmount())
         );
 
+        paymentAuditService.log(payment, "Payment refunded via API, reason: " + request.reason());
+
         log.info("Payment refunded for paymentId: {}, reason: {}", payment.getId(), request.reason());
 
         return paymentMapper.toResponse(payment);
@@ -97,7 +91,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponse initiatePayment(InitiatePaymentRequest request) {
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
         if (!CardValidator.isValidLuhn(request.cardNumber())) {
             throw new IllegalArgumentException("Card number failed Luhn validation");
         }
@@ -105,7 +99,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("Card expiry date is invalid or in the past");
         }
 
-        // Tutar/para birimi frontend'den değil, her zaman order-service'ten (source of truth) alınır
+        Optional<Payment> existingByRequestId = paymentRepository.findByPaymentRequestId(request.paymentRequestId());
+        if (existingByRequestId.isPresent()) {
+            log.info("Replaying existing payment for paymentRequestId: {}", request.paymentRequestId());
+            return paymentMapper.toResponse(existingByRequestId.get());
+        }
+
+        // Tutar/para birimi/customerId frontend'den değil, her zaman order-service'ten (source of truth) alınır
         OrderResponse order = orderClient.getOrderById(request.orderId());
         if (!PENDING_PAYMENT_STATUS.equals(order.status())) {
             throw new OrderNotPayableException(order.id(), order.status());
@@ -116,9 +116,9 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentAlreadyProcessedException(request.orderId().toString());
         }
 
-        boolean isNewPayment = payment == null;
-        if (isNewPayment) {
+        if (payment == null) {
             payment = Payment.builder()
+                    .paymentRequestId(request.paymentRequestId())
                     .orderId(order.id())
                     .customerId(order.customerId())
                     .amount(order.totalAmount())
@@ -126,54 +126,23 @@ public class PaymentServiceImpl implements PaymentService {
                     .method(request.method())
                     .status(PaymentStatus.PENDING)
                     .build();
-            payment = paymentRepository.save(payment);
-        }
-
-        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod(), request.cardNumber());
-
-        PaymentAttempt attempt = PaymentAttempt.builder()
-                .attemptNo(payment.getAttempts().size() + 1)
-                .response(chargeResult.success() ? "MOCK_PSP_APPROVED" : chargeResult.failureReason())
-                .attemptedAt(Instant.now())
-                .build();
-        payment.addAttempt(attempt);
-        paymentAttemptRepository.save(attempt);
-
-        if (chargeResult.success()) {
-            payment.setStatus(PaymentStatus.COMPLETED);
-            payment.setPaidAt(Instant.now());
-            payment.setExternalRef(chargeResult.externalRef());
-            payment.setFailureReason(null);
-            paymentRepository.save(payment);
-
-            auditListener.logCreate("Payment", payment.getId().toString(),
-                    Map.of("status", payment.getStatus(), "orderId", payment.getOrderId()));
-
-            outboxService.saveEvent(
-                    "PAYMENT",
-                    payment.getId().toString(),
-                    "payment-completed-topic",
-                    PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
-            );
-
-            log.info("Payment completed for orderId: {}", payment.getOrderId());
+            try {
+                paymentRepository.saveAndFlush(payment);
+            } catch (DataIntegrityViolationException e) {
+                throw new DuplicateRequestException(request.paymentRequestId());
+            }
         } else {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setFailureReason(chargeResult.failureReason());
-            paymentRepository.save(payment);
-
-            auditListener.logCreate("Payment", payment.getId().toString(),
-                    Map.of("status", payment.getStatus(), "failureReason", chargeResult.failureReason()));
-
-            outboxService.saveEvent(
-                    "PAYMENT",
-                    payment.getId().toString(),
-                    "payment-failed-topic",
-                    PaymentFailedEvent.of(payment.getOrderId(), chargeResult.failureReason())
-            );
-
-            log.info("Payment failed for orderId: {}, reason: {}", payment.getOrderId(), chargeResult.failureReason());
+            // Önceki deneme FAILED oldu — aynı sipariş için yeni paymentRequestId ile tekrar deneniyor
+            payment.setPaymentRequestId(request.paymentRequestId());
+            payment.setMethod(request.method());
+            payment.setFailureReason(null);
         }
+
+        PspChargeResult chargeResult = paymentProcessingHelper.attemptInitialCharge(payment, request.cardNumber());
+
+        paymentAuditService.log(payment, chargeResult.success()
+                ? "Payment created and completed via API"
+                : "Payment created but failed via API: " + chargeResult.failureReason());
 
         return paymentMapper.toResponse(payment);
     }

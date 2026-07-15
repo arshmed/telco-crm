@@ -10,8 +10,9 @@ import java.util.UUID;
 @Component
 public class MockPspClientImpl implements MockPspClient {
 
-    private static final double SUCCESS_RATE = 0.85;
-    private static final String[] FAILURE_REASONS = {"Insufficient funds", "Card declined", "Card expired"};
+    private static final String[] CREDIT_CARD_FAILURE_REASONS = {"Insufficient funds", "Card declined", "Card expired"};
+    private static final String[] BANK_TRANSFER_FAILURE_REASONS = {"Bank account not found", "Transfer limit exceeded"};
+    private static final String[] WALLET_FAILURE_REASONS = {"Wallet balance insufficient"};
 
     // Stripe test-card konvansiyonuna benzer, demo amaçlı deterministik test kartları
     private static final String ALWAYS_DECLINED_SUFFIX = "0002";
@@ -19,10 +20,10 @@ public class MockPspClientImpl implements MockPspClient {
 
     @Override
     public PspChargeResult charge(BigDecimal amount, PaymentMethod method, String cardNumber) {
-        simulateNetworkLatency();
+        PspProfile profile = profileFor(method);
+        simulateNetworkLatency(profile.minDelayMs(), profile.maxDelayMs());
 
         String digitsOnly = cardNumber == null ? "" : cardNumber.replaceAll("\\s+", "");
-
         if (digitsOnly.endsWith(ALWAYS_DECLINED_SUFFIX)) {
             return new PspChargeResult(false, null, "Card declined");
         }
@@ -30,19 +31,30 @@ public class MockPspClientImpl implements MockPspClient {
             return new PspChargeResult(false, null, "Insufficient funds");
         }
 
-        if (Math.random() < SUCCESS_RATE) {
+        if (Math.random() < profile.successRate()) {
             return new PspChargeResult(true, "MOCK-REF-" + UUID.randomUUID(), null);
         }
 
-        String failureReason = FAILURE_REASONS[(int) (Math.random() * FAILURE_REASONS.length)];
+        String[] reasons = profile.failureReasons();
+        String failureReason = reasons[(int) (Math.random() * reasons.length)];
         return new PspChargeResult(false, null, failureReason);
     }
 
-    private void simulateNetworkLatency() {
+    private PspProfile profileFor(PaymentMethod method) {
+        return switch (method) {
+            case CREDIT_CARD -> new PspProfile(0.85, 100, 300, CREDIT_CARD_FAILURE_REASONS);
+            case BANK_TRANSFER -> new PspProfile(0.95, 500, 1000, BANK_TRANSFER_FAILURE_REASONS);
+            case WALLET -> new PspProfile(0.98, 50, 150, WALLET_FAILURE_REASONS);
+        };
+    }
+
+    private void simulateNetworkLatency(long minDelayMs, long maxDelayMs) {
         try {
-            Thread.sleep(100 + (long) (Math.random() * 200));
+            Thread.sleep(minDelayMs + (long) (Math.random() * (maxDelayMs - minDelayMs)));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
+
+    private record PspProfile(double successRate, long minDelayMs, long maxDelayMs, String[] failureReasons) {}
 }

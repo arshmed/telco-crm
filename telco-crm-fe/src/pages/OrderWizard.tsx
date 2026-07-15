@@ -148,6 +148,7 @@ export default function OrderWizard() {
 
       try {
         const payment = await createPayment({
+          paymentRequestId: crypto.randomUUID(),
           orderId,
           method: 'CREDIT_CARD',
           cardHolder,

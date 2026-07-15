@@ -58,7 +58,7 @@ logging:
       console: ecs
       file: ecs
   file:
-    name: logs/order-service.log
+    name: logs/customer-service.log
 
 eureka:
   client:

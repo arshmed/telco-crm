@@ -3,7 +3,10 @@ package com.telcocrm.subscriptionservice.service;
 import com.telcocrm.subscriptionservice.client.CustomerClient;
 import com.telcocrm.subscriptionservice.client.ProductCatalogClient;
 import com.telcocrm.subscriptionservice.dto.request.CreateSubscriptionRequest;
+import com.telcocrm.subscriptionservice.dto.response.MonthlyActivationResponse;
 import com.telcocrm.subscriptionservice.dto.response.SubscriptionResponse;
+import com.telcocrm.subscriptionservice.dto.response.SubscriptionStatsResponse;
+import com.telcocrm.subscriptionservice.dto.response.TariffDistributionResponse;
 import com.telcocrm.subscriptionservice.entity.Subscription;
 import com.telcocrm.subscriptionservice.enums.SubscriptionStatus;
 import com.telcocrm.subscriptionservice.exception.InvalidStateTransitionException;
@@ -144,6 +147,32 @@ public class SubscriptionService {
     public Page<SubscriptionResponse> getSubscriptionsByStatus(SubscriptionStatus status, Pageable pageable) {
         return subscriptionRepository.findByStatus(status, pageable)
                 .map(subscriptionMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public SubscriptionStatsResponse getStats() {
+        long active = subscriptionRepository.countByStatus(SubscriptionStatus.ACTIVE);
+        long suspended = subscriptionRepository.countByStatus(SubscriptionStatus.SUSPENDED);
+        long pending = subscriptionRepository.countByStatus(SubscriptionStatus.PENDING);
+        long terminated = subscriptionRepository.countByStatus(SubscriptionStatus.TERMINATED);
+        return new SubscriptionStatsResponse(active, suspended, pending, terminated, active + suspended + pending + terminated);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MonthlyActivationResponse> getMonthlyActivations(int months) {
+        LocalDateTime since = LocalDateTime.now().minusMonths(months);
+        List<Object[]> rows = subscriptionRepository.countMonthlyActivations(since);
+        return rows.stream()
+                .map(r -> new MonthlyActivationResponse((String) r[0], (Long) r[1]))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TariffDistributionResponse> getTariffDistribution() {
+        List<Object[]> rows = subscriptionRepository.countByTariffCode(SubscriptionStatus.ACTIVE);
+        return rows.stream()
+                .map(r -> new TariffDistributionResponse((String) r[0], (Long) r[1]))
+                .toList();
     }
 
     @Transactional

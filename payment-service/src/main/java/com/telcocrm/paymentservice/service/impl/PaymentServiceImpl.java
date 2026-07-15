@@ -19,6 +19,8 @@ import com.telcocrm.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,12 @@ public class PaymentServiceImpl implements PaymentService {
     private final OutboxService outboxService;
     private final PaymentProcessingHelper paymentProcessingHelper;
     private final PaymentAuditService paymentAuditService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentResponse> getAllPayments(Pageable pageable) {
+        return paymentRepository.findAll(pageable).map(paymentMapper::toResponse);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -55,13 +63,9 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentRefundException(paymentId, "Only completed payments can be refunded");
         }
 
-        PaymentStatus oldStatus = payment.getStatus();
         payment.setStatus(PaymentStatus.REFUNDED);
 
         paymentRepository.save(payment);
-
-        auditListener.logUpdate("Payment", payment.getId().toString(),
-                Map.of("status", oldStatus), Map.of("status", PaymentStatus.REFUNDED));
 
         outboxService.saveEvent(
                 "PAYMENT",

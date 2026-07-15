@@ -40,3 +40,4 @@ volumes:
 networks:
   telco-net:
     external: true
+    name: docker_telco-net

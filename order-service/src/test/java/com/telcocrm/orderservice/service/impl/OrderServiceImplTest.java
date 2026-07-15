@@ -197,6 +197,34 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void shouldThrowWhenOrderHasNoTariffItem() {
+        var request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                null,
+                List.of(new OrderItemRequest("ADDON-1", OrderItemType.ADDON, 1))
+        );
+        var customer = activeCustomer(request.customerId());
+        var addonProduct = new ProductResponse("ADDON-1", "Addon One", BigDecimal.ONE, "ACTIVE", "TRY");
+        var addonItem = OrderItem.builder()
+                .productCode("ADDON-1")
+                .productName("Addon One")
+                .productType(OrderItemType.ADDON)
+                .quantity(1)
+                .unitPrice(BigDecimal.ONE)
+                .lineTotal(BigDecimal.ONE)
+                .build();
+
+        when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
+        when(productCatalogClient.getProductByCode(OrderItemType.ADDON, "ADDON-1")).thenReturn(addonProduct);
+        when(orderPricingRules.buildOrderItem(request.items().getFirst(), addonProduct)).thenReturn(addonItem);
+
+        assertThatThrownBy(() -> orderService.createOrder(request, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("TARIFF");
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void shouldReplayExistingOrderWhenIdempotencyKeyAlreadySeen() {
         var request = validRequest();
         var existingOrderId = UUID.randomUUID();

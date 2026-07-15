@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -69,6 +70,14 @@ public class NotificationService {
     public Page<NotificationResponse> getUserNotificationHistory(UUID userId, Pageable pageable) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
                 .map(notificationMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NotificationResponse> getRecentNotifications() {
+        return notificationRepository.findTop20ByOrderByCreatedAtDesc()
+                .stream()
+                .map(notificationMapper::toResponse)
+                .toList();
     }
 
     private boolean isUserOptedIn(UUID userId, NotificationChannel channel) {

@@ -1,14 +1,47 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getQuota, getUsageHistory, QuotaResponse, UsageRecordResponse, Page } from "../api/usageApi";
+import {
+  getSubscriptionById,
+  SubscriptionResponse,
+  activateSubscription,
+  suspendSubscription,
+  reactivateSubscription,
+  terminateSubscription,
+  changeTariff,
+  addAddonToSubscription,
+  getSubscriptionAddons,
+  SubscriptionAddonResponse,
+} from "../api/subscriptionApi";
+import { getTariffs, getAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
 
 export default function SubscriptionDetail() {
   const { id } = useParams<{ id: string }>();
+  const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageRecordResponse[]>([]);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
   const [loadingQuota, setLoadingQuota] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState("Genel Bakış");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const [availableTariffs, setAvailableTariffs] = useState<TariffResponse[]>([]);
+  const [availableAddons, setAvailableAddons] = useState<AddonResponse[]>([]);
+  const [subscriptionAddons, setSubscriptionAddons] = useState<SubscriptionAddonResponse[]>([]);
+  const [showTariffPicker, setShowTariffPicker] = useState(false);
+  const [showAddonPicker, setShowAddonPicker] = useState(false);
+  const [selectedTariffCode, setSelectedTariffCode] = useState("");
+  const [selectedAddonCode, setSelectedAddonCode] = useState("");
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingSubscription(true);
+    getSubscriptionById(id)
+      .then(setSubscription)
+      .catch(() => {})
+      .finally(() => setLoadingSubscription(false));
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -28,6 +61,62 @@ export default function SubscriptionDetail() {
       .finally(() => setLoadingHistory(false));
   }, [activeTab, id]);
 
+  useEffect(() => {
+    if (!id) return;
+    getSubscriptionAddons(id).then(setSubscriptionAddons).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (!subscription) return;
+    getTariffs()
+      .then((data) => setAvailableTariffs((data.content || []).filter((t) => t.code !== subscription.tariffCode)))
+      .catch(() => {});
+    getAddons(subscription.tariffCode).then(setAvailableAddons).catch(() => {});
+  }, [subscription?.tariffCode]);
+
+  const handleChangeTariff = async () => {
+    if (!id || !selectedTariffCode) return;
+    setActionLoading(true);
+    try {
+      const updated = await changeTariff(id, selectedTariffCode);
+      setSubscription(updated);
+      setShowTariffPicker(false);
+      setSelectedTariffCode("");
+    } catch {
+      alert("Tarife değiştirilirken bir hata oluştu.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddAddon = async () => {
+    if (!id || !selectedAddonCode) return;
+    setActionLoading(true);
+    try {
+      await addAddonToSubscription(id, selectedAddonCode);
+      const updated = await getSubscriptionAddons(id);
+      setSubscriptionAddons(updated);
+      setShowAddonPicker(false);
+      setSelectedAddonCode("");
+    } catch {
+      alert("Ek paket eklenirken bir hata oluştu.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAction = async (action: () => Promise<SubscriptionResponse>) => {
+    setActionLoading(true);
+    try {
+      const updated = await action();
+      setSubscription(updated);
+    } catch {
+      alert("İşlem gerçekleştirilirken bir hata oluştu.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const internetTotal = quota?.dataMbIncluded ? quota.dataMbIncluded / 1024 : 0;
   const internetRemaining = quota?.dataMbRemaining ? quota.dataMbRemaining / 1024 : 0;
   const internetPct = internetTotal > 0 ? internetRemaining / internetTotal : 0;
@@ -41,13 +130,29 @@ export default function SubscriptionDetail() {
   const dakikaOffset = circumference - (minutesPct * circumference);
   const smsOffset = circumference - (smsPct * circumference);
 
-  const handleBuyAddon = () => {
-    alert("5GB Ek İnternet Paketi hatta tanımlandı.");
-  };
-
   const formatPeriod = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-success-bg text-success border border-success/20';
+      case 'PENDING': return 'bg-warning-bg text-warning border border-warning/20';
+      case 'SUSPENDED': return 'bg-info-bg text-info border border-info/20';
+      case 'TERMINATED': return 'bg-danger-bg text-danger border border-danger/20';
+      default: return 'bg-surface-container text-on-surface-variant border border-outline-variant';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'Aktif';
+      case 'PENDING': return 'Beklemede';
+      case 'SUSPENDED': return 'Askıda';
+      case 'TERMINATED': return 'Sonlandırılmış';
+      default: return status;
+    }
   };
 
   return (
@@ -57,11 +162,13 @@ export default function SubscriptionDetail() {
       <header className="flex flex-col gap-stack-sm bg-surface p-container-padding border border-outline-variant rounded">
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-4">
-            <h2 className="font-mono-id text-[24px] font-semibold text-on-surface tracking-tight tabular-nums">{quota?.msisdn || id}</h2>
-            <span className="px-2 py-1 bg-success-bg text-success font-label-sm rounded-full flex items-center gap-1 border border-success/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-              Aktif
-            </span>
+            <h2 className="font-mono-id text-[24px] font-semibold text-on-surface tracking-tight tabular-nums">{subscription?.msisdn || quota?.msisdn || id}</h2>
+            {subscription && (
+              <span className={`px-2 py-1 font-label-sm rounded-full flex items-center gap-1 ${getStatusColor(subscription.status)}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                {getStatusLabel(subscription.status)}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button className="px-4 py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors">
@@ -79,7 +186,7 @@ export default function SubscriptionDetail() {
           </div>
           <div className="flex flex-col">
             <span className="text-outline font-label-sm">Tarife</span>
-            <span className="mt-0.5 font-medium">{quota?.tariffCode || "-"}</span>
+            <span className="mt-0.5 font-medium">{subscription?.tariffCode || quota?.tariffCode || "-"}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-outline font-label-sm">Dönem</span>
@@ -178,13 +285,70 @@ export default function SubscriptionDetail() {
                 <div className="flex justify-between items-end mb-2">
                   <div>
                     <span className="font-body-sm text-on-surface-variant block mb-1">Mevcut Tarife</span>
-                    <span className="font-label-md text-on-surface">{quota?.tariffCode || "-"}</span>
+                    <span className="font-label-md text-on-surface">{subscription?.tariffCode || quota?.tariffCode || "-"}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-auto">
-                  <button className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors text-center">Tarife Değiştir</button>
-                  <button onClick={handleBuyAddon} className="flex-1 py-2 bg-surface border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors text-center">Ek Paket Ekle (5GB)</button>
-                </div>
+
+                {subscriptionAddons.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="font-body-sm text-on-surface-variant">Ek Paketler</span>
+                    <ul className="flex flex-col gap-1">
+                      {subscriptionAddons.map((a) => (
+                        <li key={a.id} className="font-label-sm text-on-surface flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px] text-primary">add_circle</span>
+                          {a.addonCode}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {subscription?.status !== 'ACTIVE' ? (
+                  <p className="font-body-sm text-secondary">Tarife/paket değişikliği yalnızca aktif abonelikler için yapılabilir.</p>
+                ) : showTariffPicker ? (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={selectedTariffCode}
+                      onChange={(e) => setSelectedTariffCode(e.target.value)}
+                      className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none"
+                    >
+                      <option value="">Yeni tarife seçin</option>
+                      {availableTariffs.map((t) => (
+                        <option key={t.code} value={t.code}>{t.name} (₺{t.monthlyFee})</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleChangeTariff} disabled={!selectedTariffCode || actionLoading}
+                        className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors disabled:opacity-50">Onayla</button>
+                      <button onClick={() => { setShowTariffPicker(false); setSelectedTariffCode(""); }}
+                        className="flex-1 py-2 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors">Vazgeç</button>
+                    </div>
+                  </div>
+                ) : showAddonPicker ? (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={selectedAddonCode}
+                      onChange={(e) => setSelectedAddonCode(e.target.value)}
+                      className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none"
+                    >
+                      <option value="">Eklenecek paket seçin</option>
+                      {availableAddons.map((a) => (
+                        <option key={a.code} value={a.code}>{a.name} (₺{a.price})</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleAddAddon} disabled={!selectedAddonCode || actionLoading}
+                        className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors disabled:opacity-50">Onayla</button>
+                      <button onClick={() => { setShowAddonPicker(false); setSelectedAddonCode(""); }}
+                        className="flex-1 py-2 border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors">Vazgeç</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={() => setShowTariffPicker(true)} className="flex-1 py-2 bg-primary text-surface font-label-sm rounded hover:bg-on-primary-fixed-variant transition-colors text-center">Tarife Değiştir</button>
+                    <button onClick={() => setShowAddonPicker(true)} className="flex-1 py-2 bg-surface border border-outline-variant text-on-surface font-label-sm rounded hover:bg-surface-container-low transition-colors text-center">Ek Paket Ekle</button>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -236,18 +400,43 @@ export default function SubscriptionDetail() {
         <div className="w-full lg:w-[360px] flex flex-col gap-gutter shrink-0">
           
           {/* Durum Yönetimi */}
-          <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
-            <h3 className="font-h3 text-on-surface">Durum Yönetimi</h3>
-            <p className="font-body-sm text-on-surface-variant">Bu abonelik şu anda aktif durumdadır. İşlemler faturalandırmayı etkileyebilir.</p>
-            <div className="flex flex-col gap-2 mt-2">
-              <button className="w-full py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors flex justify-center items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">pause_circle</span> Askıya Al
-              </button>
-              <button className="w-full py-2 bg-danger-bg border border-danger/20 text-danger font-label-md rounded-lg hover:bg-danger hover:text-surface transition-colors flex justify-center items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">cancel</span> Sonlandır
-              </button>
+          {subscription && (
+            <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
+              <h3 className="font-h3 text-on-surface">Durum Yönetimi</h3>
+              <p className="font-body-sm text-on-surface-variant">
+                Bu abonelik şu anda <strong>{getStatusLabel(subscription.status)}</strong> durumdadır. İşlemler faturalandırmayı etkileyebilir.
+              </p>
+              <div className="flex flex-col gap-2 mt-2">
+                {subscription.status === 'ACTIVE' && (
+                  <button
+                    onClick={() => handleAction(() => suspendSubscription(subscription.id))}
+                    disabled={actionLoading}
+                    className="w-full py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">pause_circle</span> Askıya Al
+                  </button>
+                )}
+                {subscription.status === 'SUSPENDED' && (
+                  <button
+                    onClick={() => handleAction(() => reactivateSubscription(subscription.id))}
+                    disabled={actionLoading}
+                    className="w-full py-2 bg-success text-on-primary font-label-md rounded-lg hover:bg-success/90 transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">play_circle</span> Yeniden Aktifleştir
+                  </button>
+                )}
+                {(subscription.status === 'ACTIVE' || subscription.status === 'SUSPENDED') && (
+                  <button
+                    onClick={() => handleAction(() => terminateSubscription(subscription.id))}
+                    disabled={actionLoading}
+                    className="w-full py-2 bg-danger-bg border border-danger/20 text-danger font-label-md rounded-lg hover:bg-danger hover:text-surface transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">cancel</span> Sonlandır
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Bilgi Kartları */}
           <div className="bg-surface border border-outline-variant rounded p-container-padding flex flex-col gap-4">
@@ -259,11 +448,15 @@ export default function SubscriptionDetail() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
                 <span className="font-body-sm text-on-surface-variant">MSISDN</span>
-                <span className="font-mono-id text-on-surface tabular-nums">{quota?.msisdn || "-"}</span>
+                <span className="font-mono-id text-on-surface tabular-nums">{subscription?.msisdn || quota?.msisdn || "-"}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                <span className="font-body-sm text-on-surface-variant">Müşteri No</span>
+                <span className="font-mono-id text-on-surface tabular-nums text-[13px]">{subscription?.customerNo || "-"}</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="font-body-sm text-on-surface-variant">Tarife</span>
-                <span className="font-body-sm text-on-surface">{quota?.tariffCode || "-"}</span>
+                <span className="font-body-sm text-on-surface">{subscription?.tariffCode || quota?.tariffCode || "-"}</span>
               </div>
             </div>
           </div>

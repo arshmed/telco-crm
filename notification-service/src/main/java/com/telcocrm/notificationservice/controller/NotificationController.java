@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,5 +38,10 @@ public class NotificationController {
             @PathVariable UUID userId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(notificationService.getUserNotificationHistory(userId, pageable));
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<List<NotificationResponse>> getRecentNotifications() {
+        return ResponseEntity.ok(notificationService.getRecentNotifications());
     }
 }

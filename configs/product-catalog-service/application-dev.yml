@@ -63,3 +63,11 @@ management:
     export:
       zipkin:
         endpoint: http://localhost:9411/api/v2/spans
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+  file:
+    name: logs/product-catalog-service.log

@@ -1,24 +1,88 @@
+import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getSubscriptionsByStatus, getSubscriptions, getMonthlyActivations, getTariffDistribution, MonthlyActivation, TariffDistribution } from "../api/subscriptionApi";
+import { billingApi, InvoiceStats } from "../api/billingApi";
+import { getRecentNotifications, NotificationResponse } from "../api/notificationApi";
+import { formatDateTime } from "../utils/dateUtils";
 
-const subscriberData = [
-  { month: "Oca", subscribers: 18400 },
-  { month: "Şub", subscribers: 19200 },
-  { month: "Mar", subscribers: 20500 },
-  { month: "Nis", subscribers: 21300 },
-  { month: "May", subscribers: 22800 },
-  { month: "Haz", subscribers: 23600 },
-  { month: "Tem", subscribers: 24812 },
-];
+const MONTH_LABELS: Record<string, string> = {
+  "01": "Oca", "02": "Şub", "03": "Mar", "04": "Nis", "05": "May", "06": "Haz",
+  "07": "Tem", "08": "Ağu", "09": "Eyl", "10": "Eki", "11": "Kas", "12": "Ara",
+};
 
-const packageData = [
-  { name: "Küçük Ev Paketi", value: 42 },
-  { name: "Standart Ev", value: 68 },
-  { name: "Aile Paketi", value: 55 },
-  { name: "Öğrenci", value: 31 },
-  { name: "Kurumsal", value: 24 },
-];
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(amount);
+}
+
+const EVENT_ICONS: Record<string, { icon: string; color: string }> = {
+  "ORDER_CREATED": { icon: "shopping_cart", color: "text-info" },
+  "PAYMENT_COMPLETED": { icon: "check_circle", color: "text-success" },
+  "PAYMENT_FAILED": { icon: "error", color: "text-danger" },
+  "SUBSCRIPTION_ACTIVATED": { icon: "sim_card", color: "text-success" },
+  "CUSTOMER_REGISTERED": { icon: "person_add", color: "text-primary" },
+};
 
 export default function Overview() {
+  const [activeSubCount, setActiveSubCount] = useState<number | null>(null);
+  const [newActivations, setNewActivations] = useState<number | null>(null);
+  const [overdueCount, setOverdueCount] = useState<number | null>(null);
+  const [monthlyData, setMonthlyData] = useState<{ month: string; subscribers: number }[]>([]);
+  const [tariffData, setTariffData] = useState<{ name: string; value: number }[]>([]);
+  const [recentEvents, setRecentEvents] = useState<NotificationResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchKpis() {
+      setLoading(true);
+      try {
+        const [activeSubs, monthly, tarifs, overdue, events] = await Promise.allSettled([
+          getSubscriptionsByStatus("ACTIVE", 0, 1),
+          getMonthlyActivations(7),
+          getTariffDistribution(),
+          billingApi.getInvoiceStats(),
+          getRecentNotifications(),
+        ]);
+
+        if (activeSubs.status === "fulfilled") setActiveSubCount(activeSubs.value.totalElements);
+
+        if (monthly.status === "fulfilled") {
+          setMonthlyData(monthly.value.map((m) => ({
+            month: MONTH_LABELS[m.month.substring(5)] || m.month,
+            subscribers: m.count,
+          })));
+        }
+
+        if (tarifs.status === "fulfilled") {
+          setTariffData(tarifs.value.map((t) => ({
+            name: t.tariffCode,
+            value: t.count,
+          })));
+        }
+
+        if (overdue.status === "fulfilled") setOverdueCount(overdue.value.overdueCount);
+
+        if (events.status === "fulfilled") setRecentEvents(events.value);
+
+        // New activations: count from subscriptions created this month
+        const allSubs = await getSubscriptions(0, 100).catch(() => null);
+        if (allSubs) {
+          const now = new Date();
+          const thisMonth = allSubs.content.filter((s) => {
+            if (!s.activatedAt) return false;
+            const d = new Date(s.activatedAt);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+          });
+          setNewActivations(thisMonth.length);
+        }
+      } catch {
+        // APIs failed
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchKpis();
+  }, []);
+
   return (
     <div className="max-w-[1440px] mx-auto flex flex-col gap-stack-lg">
       <div className="flex justify-between items-end mb-stack-lg">
@@ -33,7 +97,9 @@ export default function Overview() {
             <span className="material-symbols-outlined text-outline text-[20px]">group</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-on-surface">24.812</span>
+            <span className="font-h1 text-[32px] text-on-surface">
+              {loading ? <span className="text-on-surface-variant">...</span> : activeSubCount?.toLocaleString("tr-TR") ?? "-"}
+            </span>
           </div>
         </div>
 
@@ -43,11 +109,15 @@ export default function Overview() {
             <span className="material-symbols-outlined text-outline text-[20px]">person_add</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-on-surface">1.240</span>
-            <span className="font-label-sm text-success bg-success-bg px-1.5 py-0.5 rounded flex items-center">
-              <span className="material-symbols-outlined text-[14px] mr-0.5">arrow_upward</span>
-              %12
+            <span className="font-h1 text-[32px] text-on-surface">
+              {loading ? <span className="text-on-surface-variant">...</span> : newActivations?.toLocaleString("tr-TR") ?? "-"}
             </span>
+            {newActivations !== null && newActivations > 0 && (
+              <span className="font-label-sm text-success bg-success-bg px-1.5 py-0.5 rounded flex items-center">
+                <span className="material-symbols-outlined text-[14px] mr-0.5">arrow_upward</span>
+                bu ay
+              </span>
+            )}
           </div>
         </div>
 
@@ -57,7 +127,9 @@ export default function Overview() {
             <span className="material-symbols-outlined text-danger text-[20px]">receipt_long</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-danger">412</span>
+            <span className="font-h1 text-[32px] text-danger">
+              {loading ? <span className="text-on-surface-variant">...</span> : overdueCount?.toLocaleString("tr-TR") ?? "-"}
+            </span>
             <span className="font-body-sm text-secondary">adet</span>
           </div>
         </div>
@@ -79,30 +151,42 @@ export default function Overview() {
         <div className="bg-surface border border-outline-variant rounded p-gutter flex flex-col">
           <h3 className="font-h3 text-on-surface mb-3">Abone Büyümesi</h3>
           <div className="flex-1">
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={subscriberData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#c4c5d9" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} tickFormatter={(v) => `${v / 1000}b`} />
-                <Tooltip contentStyle={{ borderRadius: "0.25rem", border: "1px solid #c4c5d9", fontSize: "13px" }} />
-                <Line type="monotone" dataKey="subscribers" stroke="#0040e0" strokeWidth={2} dot={{ fill: "#0040e0", r: 3 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[260px] text-on-surface-variant">Yükleniyor...</div>
+            ) : monthlyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={monthlyData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#c4c5d9" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} tickFormatter={(v) => `${v}`} />
+                  <Tooltip contentStyle={{ borderRadius: "0.25rem", border: "1px solid #c4c5d9", fontSize: "13px" }} />
+                  <Line type="monotone" dataKey="subscribers" stroke="#0040e0" strokeWidth={2} dot={{ fill: "#0040e0", r: 3 }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[260px] text-on-surface-variant">Veri yok</div>
+            )}
           </div>
         </div>
 
         <div className="bg-surface border border-outline-variant rounded p-gutter flex flex-col">
           <h3 className="font-h3 text-on-surface mb-3">Paket Dağılımı</h3>
           <div className="flex-1">
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={packageData} layout="vertical" margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#c4c5d9" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#434656" }} axisLine={false} width={120} />
-                <Tooltip contentStyle={{ borderRadius: "0.25rem", border: "1px solid #c4c5d9", fontSize: "13px" }} />
-                <Bar dataKey="value" fill="#2e5bff" radius={[0, 2, 2, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[260px] text-on-surface-variant">Yükleniyor...</div>
+            ) : tariffData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={tariffData} layout="vertical" margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#c4c5d9" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: "#434656" }} axisLine={{ stroke: "#c4c5d9" }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#434656" }} axisLine={false} width={120} />
+                  <Tooltip contentStyle={{ borderRadius: "0.25rem", border: "1px solid #c4c5d9", fontSize: "13px" }} />
+                  <Bar dataKey="value" fill="#2e5bff" radius={[0, 2, 2, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[260px] text-on-surface-variant">Veri yok</div>
+            )}
           </div>
         </div>
       </div>
@@ -113,28 +197,29 @@ export default function Overview() {
             <h3 className="font-h3 text-on-surface">Son olaylar</h3>
           </div>
           <div className="overflow-y-auto flex-1 p-0">
-            <ul className="divide-y divide-outline-variant">
-              <li className="px-gutter py-3 flex items-start space-x-3 hover:bg-surface-container-low transition-colors">
-                <span className="material-symbols-outlined text-success text-[20px] mt-0.5">check_circle</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between">
-                    <p className="font-mono-id text-on-surface truncate">EVT-7890-ACT</p>
-                    <span className="font-body-sm text-secondary whitespace-nowrap">2 dk önce</span>
-                  </div>
-                  <p className="font-body-sm text-on-surface mt-0.5"><a href="#" className="text-primary hover:underline font-label-md">Ahmet Yılmaz</a> hattı aktive edildi.</p>
-                </div>
-              </li>
-              <li className="px-gutter py-3 flex items-start space-x-3 hover:bg-surface-container-low transition-colors">
-                <span className="material-symbols-outlined text-warning text-[20px] mt-0.5">warning</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between">
-                    <p className="font-mono-id text-on-surface truncate">EVT-7889-PAY</p>
-                    <span className="font-body-sm text-secondary whitespace-nowrap">15 dk önce</span>
-                  </div>
-                  <p className="font-body-sm text-on-surface mt-0.5"><a href="#" className="text-primary hover:underline font-label-md">Ayşe Kaya</a> ödeme başarısız.</p>
-                </div>
-              </li>
-            </ul>
+            {loading ? (
+              <div className="p-8 text-center text-on-surface-variant">Yükleniyor...</div>
+            ) : recentEvents.length > 0 ? (
+              <ul className="divide-y divide-outline-variant">
+                {recentEvents.map((event) => {
+                  const evt = EVENT_ICONS[event.templateCode] || { icon: "info", color: "text-outline" };
+                  return (
+                    <li key={event.id} className="px-gutter py-3 flex items-start space-x-3 hover:bg-surface-container-low transition-colors">
+                      <span className={`material-symbols-outlined ${evt.color} text-[20px] mt-0.5`}>{evt.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between">
+                          <p className="font-mono-id text-on-surface truncate">{event.templateCode}</p>
+                          <span className="font-body-sm text-secondary whitespace-nowrap">{formatDateTime(event.createdAt)}</span>
+                        </div>
+                        <p className="font-body-sm text-on-surface mt-0.5 truncate">{event.subject || event.body}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="p-8 text-center text-on-surface-variant">Henüz olay yok</div>
+            )}
           </div>
         </div>
 

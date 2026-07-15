@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { billingApi, InvoiceResponse, BillCycleResponse } from '../api/billingApi';
+import { formatDate } from '../utils/dateUtils';
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Taslak',
@@ -19,10 +20,6 @@ const STATUS_CLASSES: Record<string, string> = {
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 export default function Billing() {

@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { getTariffs, getAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
 import { createOrder, CreateOrderRequest } from "../api/orderApi";
+import { createPayment } from "../api/paymentApi";
 import { getCustomerByNo, CustomerResponse } from "../api/customerApi";
+import { isValidLuhn, isExpiryValid } from "../utils/cardValidation";
 
 export default function OrderWizard() {
   const [step, setStep] = useState(1);
@@ -28,6 +30,8 @@ export default function OrderWizard() {
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
   const [consent, setConsent] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
@@ -50,7 +54,12 @@ export default function OrderWizard() {
     setCvv(value);
   };
 
-  const isPaymentValid = cardHolder.length > 3 && cardNumber.length === 19 && expiryDate.length === 5 && cvv.length === 3 && consent;
+  const isPaymentValid =
+    cardHolder.length > 3 &&
+    isValidLuhn(cardNumber) &&
+    isExpiryValid(expiryDate) &&
+    cvv.length === 3 &&
+    consent;
 
   const handleVerifyCustomer = async () => {
     const raw = customerNo.trim();
@@ -109,29 +118,59 @@ export default function OrderWizard() {
 
   const handleCreateOrder = async () => {
     if (!selectedTariff) return;
-    
+
+    setPaymentError(null);
     setSubmitting(true);
     try {
-      const orderPayload: CreateOrderRequest = {
-        customerNo: customerNo,
-        items: [
-          {
-            productCode: selectedTariff.code,
-            productType: 'TARIFF',
-            quantity: 1
-          },
-          ...selectedAddons.map(a => ({
-            productCode: a.code,
-            productType: 'ADDON' as const,
-            quantity: 1
-          }))
-        ]
-      };
-      
-      const response = await createOrder(orderPayload);
-      // Sipariş başarıyla oluştu, saga (izleme) ekranına git
-      navigate(`/sales/saga/${response.id}`);
-      
+      let orderId = createdOrderId;
+
+      if (!orderId) {
+        const orderPayload: CreateOrderRequest = {
+          customerNo: customerNo,
+          items: [
+            {
+              productCode: selectedTariff.code,
+              productType: 'TARIFF',
+              quantity: 1
+            },
+            ...selectedAddons.map(a => ({
+              productCode: a.code,
+              productType: 'ADDON' as const,
+              quantity: 1
+            }))
+          ]
+        };
+
+        const order = await createOrder(orderPayload);
+        orderId = order.id;
+        setCreatedOrderId(order.id);
+      }
+
+      try {
+        const payment = await createPayment({
+          paymentRequestId: crypto.randomUUID(),
+          orderId,
+          method: 'CREDIT_CARD',
+          cardHolder,
+          cardNumber: cardNumber.replace(/\s/g, ""),
+          expiryDate,
+          cvv,
+        });
+
+        if (payment.status === 'COMPLETED') {
+          navigate(`/sales/saga/${orderId}`);
+        } else {
+          setPaymentError(
+            payment.failureReason
+              ? `Kartınız reddedildi: ${payment.failureReason}. Lütfen farklı bir kartla tekrar deneyin.`
+              : "Ödeme başarısız oldu. Lütfen farklı bir kartla tekrar deneyin."
+          );
+        }
+      } catch (paymentErr: any) {
+        setPaymentError(
+          paymentErr.response?.data?.detail || "Ödeme işlenirken bir hata oluştu. Lütfen tekrar deneyin."
+        );
+      }
     } catch (error) {
       console.error("Sipariş oluşturulamadı:", error);
       alert("Sipariş oluşturulurken bir hata oluştu.");
@@ -366,6 +405,16 @@ export default function OrderWizard() {
                     <span className="material-symbols-outlined text-outline">credit_card</span>
                   </div>
                   <div className="p-stack-lg space-y-4">
+                    {paymentError && (
+                      <div className="flex items-center gap-2 text-danger font-body-sm bg-danger-bg/50 px-3 py-2 rounded border border-danger/20">
+                        <span className="material-symbols-outlined text-[18px]">error</span>
+                        {paymentError}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-info font-body-sm bg-info-bg/50 px-3 py-2 rounded border border-info/20">
+                      <span className="material-symbols-outlined text-[18px]">info</span>
+                      Demo kartı: 4242 4242 4242 4242 başarılı olur, 4000 0000 0000 0002 reddedilir.
+                    </div>
                     <div>
                       <label className="block font-label-sm text-secondary mb-1">Kart Üzerindeki İsim</label>
                       <input 

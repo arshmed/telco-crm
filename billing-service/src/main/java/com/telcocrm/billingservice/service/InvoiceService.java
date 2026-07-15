@@ -2,6 +2,7 @@ package com.telcocrm.billingservice.service;
 
 import com.telcocrm.billingservice.dto.InvoiceLineResponse;
 import com.telcocrm.billingservice.dto.InvoiceResponse;
+import com.telcocrm.billingservice.dto.InvoiceStatsResponse;
 import com.telcocrm.billingservice.entity.Invoice;
 import com.telcocrm.billingservice.entity.InvoiceLine;
 import com.telcocrm.billingservice.enums.InvoiceStatus;
@@ -65,6 +66,16 @@ public class InvoiceService {
         invoiceRepository.save(invoice);
 
         log.info("Invoice {} marked as PAID", invoice.getInvoiceNumber());
+    }
+
+    @Transactional(readOnly = true)
+    public InvoiceStatsResponse getStats() {
+        long overdue = invoiceRepository.countByStatus(InvoiceStatus.OVERDUE);
+        long paid = invoiceRepository.countByStatus(InvoiceStatus.PAID);
+        long issued = invoiceRepository.countByStatus(InvoiceStatus.ISSUED);
+        long total = invoiceRepository.count();
+        var revenue = invoiceRepository.sumGrandTotalByStatus(InvoiceStatus.PAID);
+        return new InvoiceStatsResponse(overdue, paid, issued, total, revenue);
     }
 
     private InvoiceResponse toResponse(Invoice invoice) {

@@ -41,6 +41,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PaymentServiceImplTest {
 
+    private static final String VALID_CARD_NUMBER = "4242424242424242";
+
     @Mock
     private PaymentRepository paymentRepository;
     @Mock

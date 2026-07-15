@@ -1,11 +1,13 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Debezium Connect ayakta geldikten sonra connectors/ ve debezium/ altındaki
 # connector config'lerini Kafka Connect REST API'sine kaydeder.
 # Kullanım: docker compose up -d && ./register-connectors.sh
-set -euo pipefail
+# POSIX sh uyumlu olmalı — debezium-init container'ı (curlimages/curl) bash içermiyor,
+# entrypoint /bin/sh ile çalıştırıyor.
+set -eu
 
 CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 register() {
     local config_file="$1"

@@ -23,11 +23,11 @@ public class PaymentProcessingHelper {
     private final OutboxService outboxService;
     private final MockPspClient mockPspClient;
 
-    public PspChargeResult attemptInitialCharge(Payment payment) {
-        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod());
+    public PspChargeResult attemptInitialCharge(Payment payment, String cardNumber) {
+        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod(), cardNumber);
 
         PaymentAttempt attempt = PaymentAttempt.builder()
-                .attemptNo(1)
+                .attemptNo(payment.getAttempts().size() + 1)
                 .response(chargeResult.success() ? "MOCK_PSP_APPROVED" : chargeResult.failureReason())
                 .attemptedAt(Instant.now())
                 .build();

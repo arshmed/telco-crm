@@ -5,7 +5,6 @@ import com.telcocrm.paymentservice.entity.Payment;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
-import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;

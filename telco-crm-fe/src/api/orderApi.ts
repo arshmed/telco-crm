@@ -55,23 +55,23 @@ export interface Page<T> {
 }
 
 export const createOrder = async (data: CreateOrderRequest) => {
-  const response = await apiClient.post<OrderResponse>('/orders', data);
+  const response = await apiClient.post<OrderResponse>('/api/v1/orders', data);
   return response.data;
 };
 
 export const listOrders = async (page = 0, size = 20, customerId?: string) => {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (customerId) params.append('customerId', customerId);
-  const response = await apiClient.get<Page<OrderResponse>>(`/orders?${params}`);
+  const response = await apiClient.get<Page<OrderResponse>>(`/api/v1/orders?${params}`);
   return response.data;
 };
 
 export const getOrderById = async (orderId: string) => {
-  const response = await apiClient.get<OrderResponse>(`/orders/${orderId}`);
+  const response = await apiClient.get<OrderResponse>(`/api/v1/orders/${orderId}`);
   return response.data;
 };
 
 export const cancelOrder = async (orderId: string, reason: string) => {
-  const response = await apiClient.post<OrderResponse>(`/orders/${orderId}/cancel`, { reason });
+  const response = await apiClient.post<OrderResponse>(`/api/v1/orders/${orderId}/cancel`, { reason });
   return response.data;
 };

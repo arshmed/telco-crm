@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listOrders, OrderResponse, Page, cancelOrder } from "../api/orderApi";
+import { formatDateTime } from "../utils/dateUtils";
 
 const STATUS_CHIPS = [
   { key: "all", label: "Tümü" },
@@ -176,7 +177,7 @@ export default function OrderList() {
                       {order.totalAmount?.toFixed(2)} {order.currency}
                     </td>
                     <td className="px-gutter font-mono-id text-right tabular-nums text-secondary">
-                      {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                      {formatDateTime(order.createdAt)}
                     </td>
                     <td className="px-gutter text-right">
                       {order.status === 'PENDING_PAYMENT' && (

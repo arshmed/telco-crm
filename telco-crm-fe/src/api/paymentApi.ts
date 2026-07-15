@@ -22,7 +22,8 @@ export interface PaymentResponse {
   currency: string;
   method: string;
   status: string;
-  externalRef: string;
+  externalRef: string | null;
+  failureReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,17 +32,32 @@ export interface RefundRequest {
   reason: string;
 }
 
+export interface CreatePaymentRequest {
+  paymentRequestId: string;
+  orderId: string;
+  method: 'CREDIT_CARD' | 'BANK_TRANSFER' | 'WALLET';
+  cardHolder: string;
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+}
+
 export const getPayments = async (page: number = 0, size: number = 20): Promise<Page<PaymentResponse>> => {
-  const { data } = await apiClient.get<Page<PaymentResponse>>(`/payments?page=${page}&size=${size}`);
+  const { data } = await apiClient.get<Page<PaymentResponse>>(`/api/v1/payments?page=${page}&size=${size}`);
   return data;
 };
 
 export const getPaymentById = async (id: string): Promise<PaymentResponse> => {
-  const { data } = await apiClient.get<PaymentResponse>(`/payments/${id}`);
+  const { data } = await apiClient.get<PaymentResponse>(`/api/v1/payments/${id}`);
   return data;
 };
 
 export const refundPayment = async (id: string, request: RefundRequest): Promise<PaymentResponse> => {
-  const { data } = await apiClient.post<PaymentResponse>(`/payments/${id}/refund`, request);
+  const { data } = await apiClient.post<PaymentResponse>(`/api/v1/payments/${id}/refund`, request);
+  return data;
+};
+
+export const createPayment = async (request: CreatePaymentRequest): Promise<PaymentResponse> => {
+  const { data } = await apiClient.post<PaymentResponse>('/api/v1/payments', request);
   return data;
 };

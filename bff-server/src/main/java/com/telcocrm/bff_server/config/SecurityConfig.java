@@ -1,20 +1,27 @@
 package com.telcocrm.bff_server.config;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,26 +34,50 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             ClientRegistrationRepository clientRegistrationRepository) throws Exception {
-        http.authorizeHttpRequests(
-                auth -> auth.requestMatchers("/actuator/**").permitAll()
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .authorizeHttpRequests(
+                auth -> auth.requestMatchers(HttpMethod.OPTIONS).permitAll() // Preflight CORS isteklerine izin ver
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
-                // Authorization Code flow: token'lar HTTP session içinde sunucuda tutulur,
-                // frontend'e yalnızca JSESSIONID cookie'si gider.
-                .oauth2Login(Customizer.withDefaults())
-                .logout(logout -> logout.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))
-                .csrf(csrf -> csrf
-                        // Frontend'in XSRF-TOKEN cookie'sini okuyup X-XSRF-TOKEN header'ı
-                        // olarak geri gönderebilmesi için HttpOnly olmamalı.
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
-                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
+            // /api/** isteklerinde oturum geçersizse Keycloak'a redirect ATMA, düz 401 dön.
+            // SPA ayrı origin'de (Vite, :5173) çalıştığı için bff'in kendisi hiçbir zaman
+            // gerçek bir sayfa navigasyonu görmüyor — buraya gelen her şey axios/fetch.
+            // Varsayılan oauth2Login entry point'i XHR'a da redirect atmaya çalışınca
+            // tarayıcı bunu cross-origin bir istek zinciri sayıp Keycloak'ın /auth
+            // endpoint'ine CORS preflight (OPTIONS) atıyor, Keycloak 405 döndürüyor,
+            // istek CORS hatasıyla patlıyor ve frontend'in "401 ise login'e yönlendir"
+            // mantığı hiç tetiklenmiyor (error.response undefined kalıyor).
+            .exceptionHandling(exceptions -> exceptions
+                    .defaultAuthenticationEntryPointFor(
+                            new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                            PathPatternRequestMatcher.pathPattern("/api/**")))
+            .oauth2Login(oauth2 -> oauth2
+                    .defaultSuccessUrl("http://localhost:5173", true))
+            .logout(logout -> logout.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))
+            .csrf(csrf -> csrf
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
+            .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
         return http.build();
     }
 
-    // Logout sonrası Keycloak oturumunu da sonlandırır (RP-Initiated Logout).
-    // SPA fetch ile POST /logout çağırdığında 302 yerine 200 + Location header
-    // döner; tarayıcının fetch'i Keycloak'a redirect takip edip CORS'a takılmasın
-    // diye yönlendirmeyi frontend window.location ile kendisi yapar.
+    // CORS'u Spring Security'nin kendi filter zincirine bağlıyoruz ki 401/redirect gibi
+    // Security tarafından erken üretilen response'larda da (ör. oturum geçersizken) doğru
+    // Access-Control-* header'ları eklensin — sadece WebMvcConfigurer bunu garanti etmiyor.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:5173", "http://localhost:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
     private OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler(
             ClientRegistrationRepository clientRegistrationRepository) {
         var handler = new OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository);
@@ -58,9 +89,6 @@ public class SecurityConfig {
         return handler;
     }
 
-    // SPA'lar için Spring Security'nin önerdiği CSRF deseni:
-    // header ile gelen token'lar BREACH koruması olmadan (düz değer),
-    // parametre ile gelenler XOR'lu çözülür.
     static final class SpaCsrfTokenRequestHandler extends CsrfTokenRequestAttributeHandler {
         private final CsrfTokenRequestAttributeHandler plain = new CsrfTokenRequestAttributeHandler();
         private final XorCsrfTokenRequestAttributeHandler xor = new XorCsrfTokenRequestAttributeHandler();
@@ -78,8 +106,6 @@ public class SecurityConfig {
         }
     }
 
-    // Deferred token yüzünden cookie'nin yazılmamasını engellemek için
-    // her istekte token'ı çözümleyip XSRF-TOKEN cookie'sinin üretilmesini garanti eder.
     static final class CsrfCookieFilter extends OncePerRequestFilter {
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,

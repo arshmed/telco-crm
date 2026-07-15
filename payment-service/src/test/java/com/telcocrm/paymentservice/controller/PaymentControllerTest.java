@@ -1,10 +1,12 @@
 package com.telcocrm.paymentservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
+import com.telcocrm.paymentservice.exception.DuplicateRequestException;
 import com.telcocrm.paymentservice.exception.GlobalExceptionHandler;
 import com.telcocrm.paymentservice.exception.PaymentNotFoundException;
 import com.telcocrm.paymentservice.exception.PaymentRefundException;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -119,5 +122,60 @@ class PaymentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createPayment_shouldReturn201WithLocationHeader() throws Exception {
+        UUID paymentId = UUID.randomUUID();
+        PaymentResponse response = new PaymentResponse(
+                paymentId, UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("149.99"), "TRY",
+                PaymentMethod.CREDIT_CARD, PaymentStatus.COMPLETED,
+                "MOCK-REF-1", null, Instant.now(),
+                List.of(), Instant.now(), Instant.now()
+        );
+
+        when(paymentService.createPayment(any(CreatePaymentRequest.class))).thenReturn(response);
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("149.99"), "TRY", PaymentMethod.CREDIT_CARD
+        );
+
+        mockMvc.perform(post("/api/v1/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/api/v1/payments/" + paymentId))
+                .andExpect(jsonPath("$.id").value(paymentId.toString()))
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+    }
+
+    @Test
+    void createPayment_shouldReturn400WhenRequestInvalid() throws Exception {
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "", null, null, new BigDecimal("-5"), "", null
+        );
+
+        mockMvc.perform(post("/api/v1/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createPayment_shouldReturn409WhenDuplicateRequest() throws Exception {
+        when(paymentService.createPayment(any(CreatePaymentRequest.class)))
+                .thenThrow(new DuplicateRequestException("req-1"));
+
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "req-1", UUID.randomUUID(), UUID.randomUUID(),
+                new BigDecimal("149.99"), "TRY", PaymentMethod.CREDIT_CARD
+        );
+
+        mockMvc.perform(post("/api/v1/payments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict());
     }
 }

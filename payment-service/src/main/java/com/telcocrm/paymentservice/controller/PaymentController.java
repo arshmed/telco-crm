@@ -27,6 +27,12 @@ public class PaymentController {
         return ResponseEntity.created(URI.create("/api/v1/payments/" + response.id())).body(response);
     }
 
+    @GetMapping
+    public ResponseEntity<Page<PaymentResponse>> getAllPayments(Pageable pageable) {
+        Page<PaymentResponse> response = paymentService.getAllPayments(pageable);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable UUID id) {
         PaymentResponse response = paymentService.getPaymentById(id);

@@ -2,6 +2,7 @@ package com.telcocrm.billingservice.controller;
 
 import com.telcocrm.billingservice.dto.BillCycleResponse;
 import com.telcocrm.billingservice.dto.InvoiceResponse;
+import com.telcocrm.billingservice.dto.InvoiceStatsResponse;
 import com.telcocrm.billingservice.entity.BillCycle;
 import com.telcocrm.billingservice.repository.BillCycleRepository;
 import com.telcocrm.billingservice.service.InvoiceService;
@@ -34,6 +35,11 @@ public class InvoiceController {
     @GetMapping("/invoices/{id}")
     public ResponseEntity<InvoiceResponse> getInvoice(@PathVariable UUID id) {
         return ResponseEntity.ok(invoiceService.getInvoice(id));
+    }
+
+    @GetMapping("/invoices/stats")
+    public ResponseEntity<InvoiceStatsResponse> getStats() {
+        return ResponseEntity.ok(invoiceService.getStats());
     }
 
     @GetMapping("/billing/cycles")

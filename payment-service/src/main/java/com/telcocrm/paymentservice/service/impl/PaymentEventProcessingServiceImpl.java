@@ -1,11 +1,8 @@
 package com.telcocrm.paymentservice.service.impl;
 
-import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.entity.Payment;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
-import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
-import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
@@ -13,7 +10,6 @@ import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
 import com.telcocrm.paymentservice.service.PaymentAuditService;
 import com.telcocrm.paymentservice.service.PaymentEventProcessingService;
-import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,44 +25,10 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
     private final PaymentRepository paymentRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
-    private final PaymentProcessingHelper paymentProcessingHelper;
     private final PaymentAuditService paymentAuditService;
 
-    @Override
-    @Transactional
-    public void processOrderCreated(OrderCreatedEvent event) {
-        if (processedEventRepository.existsByEventId(event.eventId())) {
-            log.warn("OrderCreatedEvent already processed: {}", event.eventId());
-            return;
-        }
-
-        Payment payment = Payment.builder()
-                .orderId(event.orderId())
-                .customerId(event.customerId())
-                .amount(event.totalAmount())
-                .currency(event.currency())
-                .method(PaymentMethod.CREDIT_CARD)
-                .status(PaymentStatus.PENDING)
-                .build();
-
-        paymentRepository.save(payment);
-
-        PspChargeResult chargeResult = paymentProcessingHelper.attemptInitialCharge(payment);
-
-        paymentAuditService.log(payment, chargeResult.success()
-                ? "Payment completed for orderId: " + event.orderId()
-                : "Payment failed for orderId: " + event.orderId() + ": " + chargeResult.failureReason());
-
-        processedEventRepository.save(
-            ProcessedEvent.builder()
-                .eventId(event.eventId())
-                .processedAt(Instant.now())
-                .build()
-        );
-
-        log.info("OrderCreated processed, payment {} for orderId: {}",
-                chargeResult.success() ? "completed" : "failed", event.orderId());
-    }
+    // Not: processOrderCreated (order oluşunca otomatik ödeme tetikleyicisi) kasıtlı olarak yok.
+    // Ödeme artık kullanıcı tetiklemeli — PaymentServiceImpl.createPayment() üzerinden REST ile başlıyor.
 
     @Override
     @Transactional

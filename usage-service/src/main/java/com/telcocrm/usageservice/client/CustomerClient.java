@@ -1,6 +1,7 @@
 package com.telcocrm.usageservice.client;
 
 import com.telcocrm.usageservice.client.dto.CustomerResponse;
+import com.telcocrm.usageservice.exception.DownstreamAccessException;
 import com.telcocrm.usageservice.exception.ServiceUnavailableException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -20,6 +21,12 @@ public interface CustomerClient {
     default CustomerResponse getCustomerByIdFallback(UUID id, Throwable throwable) {
         if (throwable instanceof FeignException.NotFound) {
             return null;
+        }
+        if (throwable instanceof FeignException.Unauthorized) {
+            throw new DownstreamAccessException("Customer service", "JWT token rejected (401)", throwable);
+        }
+        if (throwable instanceof FeignException.Forbidden) {
+            throw new DownstreamAccessException("Customer service", "insufficient permissions (403)", throwable);
         }
         throw new ServiceUnavailableException("Customer service", "CUSTOMER_SERVICE_UNAVAILABLE", throwable);
     }

@@ -1,9 +1,11 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import clsx from "clsx";
+import { logoutFromBff } from "../../api/authApi";
 
 const navItems = [
   { path: "/overview", icon: "dashboard", label: "Genel Bakış" },
   { path: "/customers", icon: "person", label: "Müşteriler" },
+  { path: "/subscriptions", icon: "sim_card", label: "Abonelikler" },
   { path: "/sales", icon: "receipt_long", label: "Siparişler" },
   { path: "/finance", icon: "payments", label: "Finans" },
   { path: "/catalog", icon: "inventory_2", label: "Ürün Kataloğu" },
@@ -13,13 +15,10 @@ const navItems = [
 
 export function Sidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const handleLogout = (e: React.MouseEvent) => {
+  const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    navigate("/login");
+    await logoutFromBff();
   };
 
   return (

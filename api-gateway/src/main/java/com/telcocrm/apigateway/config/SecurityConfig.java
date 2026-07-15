@@ -11,13 +11,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -25,10 +21,12 @@ import java.util.Map;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
+    // CORS artık yalnızca tarayıcıya doğrudan bakan bff-server'da (CorsConfig.java) tanımlanır.
+    // Burada da tanımlarsak response'a Access-Control-Allow-Origin iki kez eklenir ve tarayıcı
+    // isteği CORS ihlali sayıp engeller (bkz. bff-server proxy zinciri: browser -> bff -> gateway).
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeExchange(auth -> auth
                 .pathMatchers(HttpMethod.OPTIONS).permitAll() // Preflight CORS isteklerine izin ver
                 .pathMatchers("/actuator/**").permitAll()
@@ -39,20 +37,6 @@ public class SecurityConfig {
             )
             .csrf(ServerHttpSecurity.CsrfSpec::disable);
         return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*")); // Tüm domainlere izin ver (Localhost vb.)
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With", "Accept"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L); // 1 saat önbellekte tut
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
     }
 
     @Bean

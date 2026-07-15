@@ -44,6 +44,14 @@ export interface BillRunResponse {
   status: string;
 }
 
+export interface InvoiceStats {
+  overdueCount: number;
+  paidCount: number;
+  issuedCount: number;
+  totalCount: number;
+  totalRevenue: number;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -56,17 +64,17 @@ export const billingApi = {
   getInvoices: async (customerId?: string, page = 0, size = 20): Promise<PageResponse<InvoiceResponse>> => {
     const params: Record<string, string | number> = { page, size };
     if (customerId) params.customerId = customerId;
-    const { data } = await apiClient.get(`/invoices`, { params });
+    const { data } = await apiClient.get(`/api/v1/invoices`, { params });
     return data;
   },
 
   getInvoice: async (id: string): Promise<InvoiceResponse> => {
-    const { data } = await apiClient.get(`/invoices/${id}`);
+    const { data } = await apiClient.get(`/api/v1/invoices/${id}`);
     return data;
   },
 
   getBillCycles: async (customerId: string): Promise<BillCycleResponse[]> => {
-    const { data } = await apiClient.get(`/billing/cycles`, {
+    const { data } = await apiClient.get(`/api/v1/billing/cycles`, {
       params: { customerId },
     });
     return data;
@@ -75,7 +83,12 @@ export const billingApi = {
   triggerBillRun: async (asOf?: string): Promise<BillRunResponse> => {
     const params: Record<string, string> = {};
     if (asOf) params.asOf = asOf;
-    const { data } = await apiClient.post(`/billing/runs`, null, { params });
+    const { data } = await apiClient.post(`/api/v1/billing/runs`, null, { params });
+    return data;
+  },
+
+  getInvoiceStats: async (): Promise<InvoiceStats> => {
+    const { data } = await apiClient.get<InvoiceStats>('/api/v1/invoices/stats');
     return data;
   },
 };

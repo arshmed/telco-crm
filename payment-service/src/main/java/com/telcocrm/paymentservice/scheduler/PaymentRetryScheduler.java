@@ -47,7 +47,9 @@ public class PaymentRetryScheduler {
     private void retry(Payment payment) {
         int attemptNo = payment.getRetryCount() + 1;
 
-        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod());
+        // Kart bilgisi saklanmıyor (PCI kapsamını daraltmak için) — otomatik retry'de kart no olmadan
+        // yöntem bazlı mock PSP profiliyle deneniyor.
+        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod(), null);
 
         PaymentAttempt attempt = PaymentAttempt.builder()
                 .attemptNo(attemptNo)

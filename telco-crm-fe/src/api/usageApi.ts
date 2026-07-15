@@ -35,11 +35,11 @@ export interface Page<T> {
 }
 
 export const getQuota = async (subscriptionId: string) => {
-  const response = await apiClient.get<QuotaResponse>(`/usage/subscriptions/${subscriptionId}/quota`);
+  const response = await apiClient.get<QuotaResponse>(`/api/v1/usage/subscriptions/${subscriptionId}/quota`);
   return response.data;
 };
 
 export const getUsageHistory = async (subscriptionId: string, page = 0, size = 20) => {
-  const response = await apiClient.get<Page<UsageRecordResponse>>(`/usage/subscriptions/${subscriptionId}/history?page=${page}&size=${size}`);
+  const response = await apiClient.get<Page<UsageRecordResponse>>(`/api/v1/usage/subscriptions/${subscriptionId}/history?page=${page}&size=${size}`);
   return response.data;
 };

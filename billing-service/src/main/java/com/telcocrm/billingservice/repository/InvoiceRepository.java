@@ -3,8 +3,11 @@ package com.telcocrm.billingservice.repository;
 import com.telcocrm.billingservice.entity.Invoice;
 import com.telcocrm.billingservice.enums.InvoiceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,4 +19,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
     List<Invoice> findByStatus(InvoiceStatus status);
     boolean existsBySubscriptionIdAndPeriodStartAndPeriodEnd(UUID subscriptionId, java.time.LocalDate periodStart, java.time.LocalDate periodEnd);
+
+    long countByStatus(InvoiceStatus status);
+
+    @Query("SELECT COALESCE(SUM(i.grandTotal), 0) FROM Invoice i WHERE i.status = :status")
+    BigDecimal sumGrandTotalByStatus(@Param("status") InvoiceStatus status);
 }

@@ -13,11 +13,12 @@ public record OrderCreatedEvent(
     String currency,
     String email,
     String firstName,
-    String lastName
+    String lastName,
+    String tariffCode
 ) {
     public static OrderCreatedEvent of(UUID orderId, UUID customerId, BigDecimal totalAmount, String currency,
-                                       String email, String firstName, String lastName) {
+                                       String email, String firstName, String lastName, String tariffCode) {
         return new OrderCreatedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, customerId, totalAmount, currency,
-                email, firstName, lastName);
+                email, firstName, lastName, tariffCode);
     }
 }

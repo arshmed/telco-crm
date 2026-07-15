@@ -13,6 +13,7 @@ import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
+import com.telcocrm.orderservice.entity.enums.OrderItemType;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
@@ -110,6 +111,14 @@ public class OrderServiceImpl implements OrderService {
             items.add(orderPricingRules.buildOrderItem(itemRequest, product));
         }
 
+        // Her sipariş subscription-service tarafında yeni bir abonelik açıyor (bkz. OrderCreatedEvent.tariffCode)
+        // ve Subscription.tariffCode NOT NULL — TARIFF içermeyen bir sipariş bu alanı null yayınlar ve
+        // subscription-service'te sürekli retry eden, hiç ilerlemeyen bir saga'ya yol açar.
+        boolean hasTariffItem = items.stream().anyMatch(item -> item.getProductType() == OrderItemType.TARIFF);
+        if (!hasTariffItem) {
+            throw new IllegalArgumentException("Order must include at least one TARIFF item");
+        }
+
         BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
         Order order = Order.builder()
@@ -156,7 +165,12 @@ public class OrderServiceImpl implements OrderService {
                         order.getCurrency(),
                         customer.email(),
                         customer.firstName(),
-                        customer.lastName()));
+                        customer.lastName(),
+                        items.stream()
+                                .filter(i -> i.getProductType() == OrderItemType.TARIFF)
+                                .map(OrderItem::getProductCode)
+                                .findFirst()
+                                .orElse(null)));
         return orderMapper.toResponse(order);
     }
 

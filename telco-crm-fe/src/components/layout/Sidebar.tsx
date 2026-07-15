@@ -56,13 +56,6 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-on-secondary-fixed-variant">
-        <Link
-          to="/settings"
-          className="flex items-center gap-3 px-3 py-2 text-outline-variant hover:text-surface-bright hover:bg-on-secondary-fixed-variant transition-colors duration-200 rounded"
-        >
-          <span className="material-symbols-outlined">settings</span>
-          <span className="font-label-md">Ayarlar</span>
-        </Link>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 text-outline-variant hover:text-error hover:bg-error-container/20 transition-colors duration-200 rounded w-full text-left"

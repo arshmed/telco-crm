@@ -10,6 +10,7 @@ import com.telcocrm.paymentservice.event.publish.PaymentFailedEvent;
 import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,6 +32,7 @@ public class PaymentRetryScheduler {
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final OutboxService outboxService;
     private final MockPspClient mockPspClient;
+    private final PaymentAuditService paymentAuditService;
 
     @Scheduled(fixedDelay = 60000)
     @Transactional
@@ -70,6 +72,8 @@ public class PaymentRetryScheduler {
                 PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
             );
 
+            paymentAuditService.log(payment, "Payment retry succeeded, attemptNo: " + attemptNo);
+
             log.info("Payment retry succeeded for paymentId: {}, attemptNo: {}", payment.getId(), attemptNo);
             return;
         }
@@ -81,6 +85,9 @@ public class PaymentRetryScheduler {
             payment.setNextRetryAt(Instant.now().plus(nextDelayHours(payment.getRetryCount()), ChronoUnit.HOURS));
 
             paymentRepository.save(payment);
+
+            paymentAuditService.log(payment, "Payment retry failed, attemptNo: " + attemptNo
+                    + ", reason: " + chargeResult.failureReason() + ", next retry at: " + payment.getNextRetryAt());
 
             log.warn("Payment retry failed for paymentId: {}, attemptNo: {}, will retry at: {}",
                     payment.getId(), attemptNo, payment.getNextRetryAt());
@@ -96,6 +103,9 @@ public class PaymentRetryScheduler {
                 "payment-failed-topic",
                 PaymentFailedEvent.of(payment.getOrderId(), chargeResult.failureReason())
             );
+
+            paymentAuditService.log(payment, "Payment retry permanently failed, attemptNo: " + attemptNo
+                    + ", reason: " + chargeResult.failureReason());
 
             log.warn("Payment retry permanently failed for paymentId: {}, attemptNo: {}", payment.getId(), attemptNo);
         }

@@ -39,7 +39,17 @@ CREATE TABLE processed_events (
     processed_at  TIMESTAMP
 );
 
+CREATE TABLE payment_audit_logs (
+    id              UUID          PRIMARY KEY,
+    payment_id      UUID          NOT NULL,
+    payment_status  VARCHAR(255)  NOT NULL,
+    detail          VARCHAR(500),
+    performed_by    VARCHAR(255)  NOT NULL,
+    created_at      TIMESTAMP     NOT NULL
+);
+
 CREATE INDEX idx_payments_customer_id       ON payments(customer_id);
 CREATE INDEX idx_payments_status            ON payments(status);
 CREATE INDEX idx_payment_attempts_payment_id ON payment_attempts(payment_id);
 CREATE INDEX idx_outbox_created_at          ON outbox(created_at);
+CREATE INDEX idx_payment_audit_logs_payment_id ON payment_audit_logs(payment_id);

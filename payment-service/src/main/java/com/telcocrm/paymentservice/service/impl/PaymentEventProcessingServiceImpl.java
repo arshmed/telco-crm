@@ -11,6 +11,7 @@ import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentAuditService;
 import com.telcocrm.paymentservice.service.PaymentEventProcessingService;
 import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
     private final PaymentProcessingHelper paymentProcessingHelper;
+    private final PaymentAuditService paymentAuditService;
 
     @Override
     @Transactional
@@ -50,6 +52,10 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
         paymentRepository.save(payment);
 
         PspChargeResult chargeResult = paymentProcessingHelper.attemptInitialCharge(payment);
+
+        paymentAuditService.log(payment, chargeResult.success()
+                ? "Payment completed for orderId: " + event.orderId()
+                : "Payment failed for orderId: " + event.orderId() + ": " + chargeResult.failureReason());
 
         processedEventRepository.save(
             ProcessedEvent.builder()
@@ -93,6 +99,9 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
             "payment-refunded-topic",
             PaymentRefundedEvent.of(payment.getOrderId(), payment.getId(), payment.getAmount())
         );
+
+        paymentAuditService.log(payment,
+                "Payment refunded due to subscription activation failure for orderId: " + event.orderId());
 
         processedEventRepository.save(
             ProcessedEvent.builder()

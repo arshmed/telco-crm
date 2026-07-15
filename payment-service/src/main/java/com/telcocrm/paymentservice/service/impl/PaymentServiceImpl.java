@@ -1,5 +1,6 @@
 package com.telcocrm.paymentservice.service.impl;
 
+import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
@@ -12,6 +13,7 @@ import com.telcocrm.paymentservice.exception.PaymentRefundException;
 import com.telcocrm.paymentservice.mapper.PaymentMapper;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentAuditService;
 import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import com.telcocrm.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentMapper paymentMapper;
     private final OutboxService outboxService;
     private final PaymentProcessingHelper paymentProcessingHelper;
+    private final PaymentAuditService paymentAuditService;
 
     @Override
     @Transactional(readOnly = true)
@@ -63,6 +66,8 @@ public class PaymentServiceImpl implements PaymentService {
                 PaymentRefundedEvent.of(payment.getOrderId(), payment.getId(), payment.getAmount())
         );
 
+        paymentAuditService.log(payment, "Payment refunded via API, reason: " + request.reason());
+
         log.info("Payment refunded for paymentId: {}, reason: {}", payment.getId(), request.reason());
 
         return paymentMapper.toResponse(payment);
@@ -93,7 +98,11 @@ public class PaymentServiceImpl implements PaymentService {
             throw new DuplicateRequestException(request.paymentRequestId());
         }
 
-        paymentProcessingHelper.attemptInitialCharge(payment);
+        PspChargeResult chargeResult = paymentProcessingHelper.attemptInitialCharge(payment);
+
+        paymentAuditService.log(payment, chargeResult.success()
+                ? "Payment created and completed via API"
+                : "Payment created but failed via API: " + chargeResult.failureReason());
 
         return paymentMapper.toResponse(payment);
     }

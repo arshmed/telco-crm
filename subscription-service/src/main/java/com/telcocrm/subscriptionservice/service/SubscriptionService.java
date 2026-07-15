@@ -233,16 +233,14 @@ public class SubscriptionService {
 
     @Transactional
     public void handleOrderCancelled(UUID orderId) {
-        List<Subscription> activeSubscriptions = subscriptionRepository.findAll().stream()
+        subscriptionRepository.findByOrderId(orderId)
                 .filter(s -> s.getStatus() == SubscriptionStatus.PENDING || s.getStatus() == SubscriptionStatus.ACTIVE)
-                .toList();
-
-        for (Subscription sub : activeSubscriptions) {
-            sub.setStatus(SubscriptionStatus.TERMINATED);
-            sub.setTerminatedAt(LocalDateTime.now());
-            subscriptionRepository.save(sub);
-            log.info("Subscription terminated due to order cancellation: {}", sub.getId());
-        }
+                .ifPresent(sub -> {
+                    sub.setStatus(SubscriptionStatus.TERMINATED);
+                    sub.setTerminatedAt(LocalDateTime.now());
+                    subscriptionRepository.save(sub);
+                    log.info("Subscription {} terminated due to cancellation of order {}", sub.getId(), orderId);
+                });
     }
 
     private Subscription getSubscriptionEntity(UUID id) {

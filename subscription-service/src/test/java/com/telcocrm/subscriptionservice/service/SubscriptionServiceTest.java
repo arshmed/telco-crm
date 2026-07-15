@@ -252,4 +252,40 @@ class SubscriptionServiceTest {
         assertThat(result).isNotNull();
         verify(subscriptionRepository).save(any(Subscription.class));
     }
+
+    @Test
+    void handleOrderCancelled_terminatesOnlyTheSubscriptionForThatOrder() {
+        UUID orderId = UUID.randomUUID();
+        subscription.setOrderId(orderId);
+        when(subscriptionRepository.findByOrderId(orderId)).thenReturn(Optional.of(subscription));
+        when(subscriptionRepository.save(any(Subscription.class))).thenReturn(subscription);
+
+        subscriptionService.handleOrderCancelled(orderId);
+
+        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.TERMINATED);
+        verify(subscriptionRepository).save(subscription);
+        verify(subscriptionRepository, never()).findAll();
+    }
+
+    @Test
+    void handleOrderCancelled_noSubscriptionForOrder_doesNothing() {
+        UUID orderId = UUID.randomUUID();
+        when(subscriptionRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
+
+        subscriptionService.handleOrderCancelled(orderId);
+
+        verify(subscriptionRepository, never()).save(any());
+    }
+
+    @Test
+    void handleOrderCancelled_alreadyTerminated_doesNotResave() {
+        UUID orderId = UUID.randomUUID();
+        subscription.setOrderId(orderId);
+        subscription.setStatus(SubscriptionStatus.TERMINATED);
+        when(subscriptionRepository.findByOrderId(orderId)).thenReturn(Optional.of(subscription));
+
+        subscriptionService.handleOrderCancelled(orderId);
+
+        verify(subscriptionRepository, never()).save(any());
+    }
 }

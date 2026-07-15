@@ -1,5 +1,6 @@
 package com.telcocrm.paymentservice.controller;
 
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.service.PaymentService;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.UUID;
 
 @RestController
@@ -16,6 +18,12 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService paymentService;
+
+    @PostMapping
+    public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
+        PaymentResponse response = paymentService.createPayment(request);
+        return ResponseEntity.created(URI.create("/api/v1/payments/" + response.id())).body(response);
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<PaymentResponse> getPaymentById(@PathVariable UUID id) {

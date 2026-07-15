@@ -1,19 +1,20 @@
 CREATE TABLE payments (
-    id              UUID          PRIMARY KEY,
-    order_id        UUID          NOT NULL UNIQUE,
-    customer_id     UUID          NOT NULL,
-    amount          NUMERIC(12,2) NOT NULL,
-    currency        VARCHAR(3)    NOT NULL,
-    method          VARCHAR(255)  NOT NULL,
-    status          VARCHAR(255)  NOT NULL,
-    external_ref    VARCHAR(255),
-    failure_reason  VARCHAR(500),
-    paid_at         TIMESTAMP,
-    retry_count     INTEGER       NOT NULL DEFAULT 0,
-    next_retry_at   TIMESTAMP,
-    created_at      TIMESTAMP     NOT NULL,
-    updated_at      TIMESTAMP     NOT NULL,
-    version         BIGINT        NOT NULL DEFAULT 0
+    id                   UUID          PRIMARY KEY,
+    payment_request_id   VARCHAR(255)  UNIQUE,
+    order_id             UUID          NOT NULL UNIQUE,
+    customer_id          UUID          NOT NULL,
+    amount               NUMERIC(12,2) NOT NULL,
+    currency             VARCHAR(3)    NOT NULL,
+    method               VARCHAR(255)  NOT NULL,
+    status               VARCHAR(255)  NOT NULL,
+    external_ref         VARCHAR(255),
+    failure_reason       VARCHAR(500),
+    paid_at              TIMESTAMP,
+    retry_count          INTEGER       NOT NULL DEFAULT 0,
+    next_retry_at        TIMESTAMP,
+    created_at           TIMESTAMP     NOT NULL,
+    updated_at           TIMESTAMP     NOT NULL,
+    version              BIGINT        NOT NULL DEFAULT 0
 );
 
 CREATE TABLE payment_attempts (

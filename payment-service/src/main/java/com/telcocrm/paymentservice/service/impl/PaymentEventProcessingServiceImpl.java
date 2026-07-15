@@ -1,28 +1,24 @@
 package com.telcocrm.paymentservice.service.impl;
 
-import com.telcocrm.paymentservice.client.MockPspClient;
 import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.entity.Payment;
-import com.telcocrm.paymentservice.entity.PaymentAttempt;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
-import com.telcocrm.paymentservice.event.publish.PaymentCompletedEvent;
 import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
-import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
 import com.telcocrm.paymentservice.service.PaymentEventProcessingService;
+import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Service
@@ -30,10 +26,9 @@ import java.time.temporal.ChronoUnit;
 public class PaymentEventProcessingServiceImpl implements PaymentEventProcessingService {
 
     private final PaymentRepository paymentRepository;
-    private final PaymentAttemptRepository paymentAttemptRepository;
     private final ProcessedEventRepository processedEventRepository;
     private final OutboxService outboxService;
-    private final MockPspClient mockPspClient;
+    private final PaymentProcessingHelper paymentProcessingHelper;
 
     @Override
     @Transactional
@@ -54,37 +49,7 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
 
         paymentRepository.save(payment);
 
-        PspChargeResult chargeResult = mockPspClient.charge(payment.getAmount(), payment.getMethod());
-
-        PaymentAttempt attempt = PaymentAttempt.builder()
-                .attemptNo(1)
-                .response(chargeResult.success() ? "MOCK_PSP_APPROVED" : chargeResult.failureReason())
-                .attemptedAt(Instant.now())
-                .build();
-        payment.addAttempt(attempt);
-        paymentAttemptRepository.save(attempt);
-
-        if (chargeResult.success()) {
-            payment.setStatus(PaymentStatus.COMPLETED);
-            payment.setPaidAt(Instant.now());
-            payment.setExternalRef(chargeResult.externalRef());
-
-            paymentRepository.save(payment);
-
-            outboxService.saveEvent(
-                "PAYMENT",
-                payment.getId().toString(),
-                "payment-completed-topic",
-                PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
-            );
-        } else {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setFailureReason(chargeResult.failureReason());
-            payment.setRetryCount(1);
-            payment.setNextRetryAt(Instant.now().plus(24, ChronoUnit.HOURS));
-
-            paymentRepository.save(payment);
-        }
+        PspChargeResult chargeResult = paymentProcessingHelper.attemptInitialCharge(payment);
 
         processedEventRepository.save(
             ProcessedEvent.builder()

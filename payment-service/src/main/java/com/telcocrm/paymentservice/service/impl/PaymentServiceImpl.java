@@ -1,21 +1,26 @@
 package com.telcocrm.paymentservice.service.impl;
 
+import com.telcocrm.paymentservice.dto.request.CreatePaymentRequest;
 import com.telcocrm.paymentservice.dto.request.RefundRequest;
 import com.telcocrm.paymentservice.dto.response.PaymentResponse;
 import com.telcocrm.paymentservice.entity.Payment;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 import com.telcocrm.paymentservice.event.publish.PaymentRefundedEvent;
+import com.telcocrm.paymentservice.exception.DuplicateRequestException;
 import com.telcocrm.paymentservice.exception.PaymentNotFoundException;
 import com.telcocrm.paymentservice.exception.PaymentRefundException;
 import com.telcocrm.paymentservice.mapper.PaymentMapper;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
+import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
 import com.telcocrm.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -26,6 +31,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final OutboxService outboxService;
+    private final PaymentProcessingHelper paymentProcessingHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -58,6 +64,36 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         log.info("Payment refunded for paymentId: {}, reason: {}", payment.getId(), request.reason());
+
+        return paymentMapper.toResponse(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+        Optional<Payment> existing = paymentRepository.findByPaymentRequestId(request.paymentRequestId());
+        if (existing.isPresent()) {
+            log.info("Replaying existing payment for paymentRequestId: {}", request.paymentRequestId());
+            return paymentMapper.toResponse(existing.get());
+        }
+
+        Payment payment = Payment.builder()
+                .paymentRequestId(request.paymentRequestId())
+                .orderId(request.orderId())
+                .customerId(request.customerId())
+                .amount(request.amount())
+                .currency(request.currency())
+                .method(request.method())
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        try {
+            paymentRepository.saveAndFlush(payment);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateRequestException(request.paymentRequestId());
+        }
+
+        paymentProcessingHelper.attemptInitialCharge(payment);
 
         return paymentMapper.toResponse(payment);
     }

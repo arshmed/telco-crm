@@ -11,5 +11,7 @@ import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByOrderId(UUID orderId);
 
+    Optional<Payment> findByPaymentRequestId(String paymentRequestId);
+
     List<Payment> findByStatusAndNextRetryAtBefore(PaymentStatus status, Instant instant);
 }

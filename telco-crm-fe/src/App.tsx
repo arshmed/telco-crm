@@ -9,6 +9,7 @@ import CatalogManager from "./pages/CatalogManager";
 import OrderList from "./pages/OrderList";
 import OrderWizard from "./pages/OrderWizard";
 import LiveSaga from "./pages/LiveSaga";
+import SubscriptionList from "./pages/SubscriptionList";
 import SubscriptionDetail from "./pages/SubscriptionDetail";
 import Billing from "./pages/Billing";
 import Payments from "./pages/Payments";
@@ -39,7 +40,10 @@ function App() {
             <Route path="saga/:orderId" element={<LiveSaga />} />
           </Route>
           
-          <Route path="subscriptions/:id" element={<SubscriptionDetail />} />
+          <Route path="subscriptions">
+            <Route index element={<SubscriptionList />} />
+            <Route path=":id" element={<SubscriptionDetail />} />
+          </Route>
           
           <Route path="catalog" element={<CatalogManager />} />
           

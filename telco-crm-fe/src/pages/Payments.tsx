@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import clsx from "clsx";
 import { getPayments, PaymentResponse, Page } from "../api/paymentApi";
+import { getCustomerById, CustomerResponse } from "../api/customerApi";
+import { formatDateTime } from "../utils/dateUtils";
 
 const PAYMENT_FILTERS = [
   { key: "ALL", label: "Tümü" },
@@ -15,9 +17,23 @@ const STATUS_CLASSES: Record<string, string> = {
   REFUNDED: "bg-warning-bg text-warning",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  COMPLETED: "Tamamlandı",
+  FAILED: "Başarısız",
+  REFUNDED: "İade",
+  PENDING: "Beklemede",
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  CREDIT_CARD: "Kredi Kartı",
+  BANK_TRANSFER: "Havale/EFT",
+  WALLET: "Cüzdan",
+};
+
 export default function Payments() {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [payments, setPayments] = useState<Page<PaymentResponse> | null>(null);
+  const [customers, setCustomers] = useState<Map<string, CustomerResponse>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +45,14 @@ export default function Payments() {
       setLoading(true);
       const data = await getPayments(0, 50);
       setPayments(data);
+
+      const uniqueIds = [...new Set(data.content.map((p) => p.customerId).filter(Boolean))];
+      const results = await Promise.allSettled(uniqueIds.map((id) => getCustomerById(id)));
+      const map = new Map<string, CustomerResponse>();
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled") map.set(uniqueIds[i], r.value);
+      });
+      setCustomers(map);
     } catch (err) {
       console.error("Failed to fetch payments", err);
     } finally {
@@ -92,10 +116,10 @@ export default function Payments() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-background border-b border-outline-variant">
-                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Ödeme ID</th>
-                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Sipariş ID</th>
-                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Yöntem</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Müşteri</th>
                   <th className="font-label-sm text-on-surface-variant py-3 px-4 text-right">Tutar</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Yöntem</th>
+                  <th className="font-label-sm text-on-surface-variant py-3 px-4">Referans</th>
                   <th className="font-label-sm text-on-surface-variant py-3 px-4">Tarih</th>
                   <th className="font-label-sm text-on-surface-variant py-3 px-4">Durum</th>
                 </tr>
@@ -106,20 +130,26 @@ export default function Payments() {
                     <td colSpan={6} className="text-center py-6 text-on-surface-variant">Ödeme bulunamadı</td>
                   </tr>
                 ) : (
-                  getFilteredPayments().map((p) => (
-                    <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors cursor-pointer" onClick={() => window.location.href = `/finance/payments/${p.id}`}>
-                      <td className="px-4 font-mono-id text-on-surface">{p.id.substring(0, 8)}...</td>
-                      <td className="px-4 font-mono-id text-primary">{p.orderId ? p.orderId.substring(0, 8) + '...' : '-'}</td>
-                      <td className="px-4 font-body-sm text-on-surface-variant">{p.method}</td>
-                      <td className="px-4 text-right font-mono-id tabular-nums">{p.amount?.toFixed(2)} {p.currency}</td>
-                      <td className="px-4 font-mono-id text-on-surface-variant">{new Date(p.createdAt).toLocaleDateString('tr-TR')}</td>
-                      <td className="px-4">
-                        <span className={clsx("inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase", STATUS_CLASSES[p.status] || "bg-outline-variant text-surface")}>
-                          {p.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                  getFilteredPayments().map((p) => {
+                    const customer = customers.get(p.customerId);
+                    const customerLabel = customer
+                      ? `${customer.firstName} ${customer.lastName}`
+                      : p.customerId?.substring(0, 8) + "...";
+                    return (
+                      <tr key={p.id} className="h-row-height-std hover:bg-surface-container transition-colors">
+                        <td className="px-4 font-body-sm text-on-surface">{customerLabel}</td>
+                        <td className="px-4 text-right font-mono-id tabular-nums">{p.amount?.toFixed(2)} {p.currency}</td>
+                        <td className="px-4 font-body-sm text-on-surface-variant">{METHOD_LABELS[p.method] || p.method}</td>
+                        <td className="px-4 font-mono-id text-secondary text-[13px]">{p.externalRef || "-"}</td>
+                        <td className="px-4 font-body-sm text-on-surface-variant">{formatDateTime(p.createdAt)}</td>
+                        <td className="px-4">
+                          <span className={clsx("inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium", STATUS_CLASSES[p.status] || "bg-outline-variant text-surface")}>
+                            {STATUS_LABELS[p.status] || p.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

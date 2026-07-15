@@ -1,4 +1,7 @@
+import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getSubscriptionsByStatus, getSubscriptions } from "../api/subscriptionApi";
+import { billingApi } from "../api/billingApi";
 
 const subscriberData = [
   { month: "Oca", subscribers: 18400 },
@@ -19,6 +22,45 @@ const packageData = [
 ];
 
 export default function Overview() {
+  const [activeSubCount, setActiveSubCount] = useState<number | null>(null);
+  const [newActivations, setNewActivations] = useState<number | null>(null);
+  const [overdueCount, setOverdueCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchKpis() {
+      setLoading(true);
+      try {
+        const [activeSubs, allSubs, invoices] = await Promise.allSettled([
+          getSubscriptionsByStatus("ACTIVE", 0, 1),
+          getSubscriptions(0, 100),
+          billingApi.getInvoices(undefined, 0, 100),
+        ]);
+
+        if (activeSubs.status === "fulfilled") setActiveSubCount(activeSubs.value.totalElements);
+
+        if (allSubs.status === "fulfilled") {
+          const now = new Date();
+          const thisMonth = allSubs.value.content.filter((s) => {
+            if (!s.activatedAt) return false;
+            const d = new Date(s.activatedAt);
+            return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+          });
+          setNewActivations(thisMonth.length);
+        }
+
+        if (invoices.status === "fulfilled") {
+          const overdue = invoices.value.content.filter((i) => i.status === "OVERDUE");
+          setOverdueCount(overdue.length);
+        }
+      } catch {
+        // APIs failed — keep null values
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchKpis();
+  }, []);
   return (
     <div className="max-w-[1440px] mx-auto flex flex-col gap-stack-lg">
       <div className="flex justify-between items-end mb-stack-lg">
@@ -33,7 +75,9 @@ export default function Overview() {
             <span className="material-symbols-outlined text-outline text-[20px]">group</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-on-surface">24.812</span>
+            <span className="font-h1 text-[32px] text-on-surface">
+              {loading ? <span className="text-on-surface-variant">...</span> : activeSubCount?.toLocaleString("tr-TR") ?? "-"}
+            </span>
           </div>
         </div>
 
@@ -43,11 +87,15 @@ export default function Overview() {
             <span className="material-symbols-outlined text-outline text-[20px]">person_add</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-on-surface">1.240</span>
-            <span className="font-label-sm text-success bg-success-bg px-1.5 py-0.5 rounded flex items-center">
-              <span className="material-symbols-outlined text-[14px] mr-0.5">arrow_upward</span>
-              %12
+            <span className="font-h1 text-[32px] text-on-surface">
+              {loading ? <span className="text-on-surface-variant">...</span> : newActivations?.toLocaleString("tr-TR") ?? "-"}
             </span>
+            {newActivations !== null && newActivations > 0 && (
+              <span className="font-label-sm text-success bg-success-bg px-1.5 py-0.5 rounded flex items-center">
+                <span className="material-symbols-outlined text-[14px] mr-0.5">arrow_upward</span>
+                bu ay
+              </span>
+            )}
           </div>
         </div>
 
@@ -57,7 +105,9 @@ export default function Overview() {
             <span className="material-symbols-outlined text-danger text-[20px]">receipt_long</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="font-h1 text-[32px] text-danger">412</span>
+            <span className="font-h1 text-[32px] text-danger">
+              {loading ? <span className="text-on-surface-variant">...</span> : overdueCount?.toLocaleString("tr-TR") ?? "-"}
+            </span>
             <span className="font-body-sm text-secondary">adet</span>
           </div>
         </div>

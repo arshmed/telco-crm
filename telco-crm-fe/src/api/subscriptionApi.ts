@@ -1,0 +1,77 @@
+import { apiClient } from './client';
+
+export type SubscriptionStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'TERMINATED';
+
+export interface SubscriptionResponse {
+  id: string;
+  customerId: string;
+  customerNo: string;
+  msisdn: string;
+  tariffCode: string;
+  status: SubscriptionStatus;
+  activatedAt: string | null;
+  suspendedAt: string | null;
+  terminatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSubscriptionRequest {
+  customerId: string;
+  tariffCode: string;
+  msisdn?: string;
+}
+
+export interface Page<T> {
+  content: T[];
+  pageable: { pageNumber: number; pageSize: number };
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export const getSubscriptions = async (page = 0, size = 20): Promise<Page<SubscriptionResponse>> => {
+  const response = await apiClient.get<Page<SubscriptionResponse>>(`/api/v1/subscriptions?page=${page}&size=${size}`);
+  return response.data;
+};
+
+export const getSubscriptionById = async (id: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.get<SubscriptionResponse>(`/api/v1/subscriptions/${id}`);
+  return response.data;
+};
+
+export const getSubscriptionsByCustomer = async (customerId: string, page = 0, size = 20): Promise<Page<SubscriptionResponse>> => {
+  const response = await apiClient.get<Page<SubscriptionResponse>>(`/api/v1/subscriptions/customer/${customerId}?page=${page}&size=${size}`);
+  return response.data;
+};
+
+export const getSubscriptionsByStatus = async (status: SubscriptionStatus, page = 0, size = 20): Promise<Page<SubscriptionResponse>> => {
+  const response = await apiClient.get<Page<SubscriptionResponse>>(`/api/v1/subscriptions/status/${status}?page=${page}&size=${size}`);
+  return response.data;
+};
+
+export const createSubscription = async (data: CreateSubscriptionRequest): Promise<SubscriptionResponse> => {
+  const response = await apiClient.post<SubscriptionResponse>('/api/v1/subscriptions', data);
+  return response.data;
+};
+
+export const activateSubscription = async (id: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.post<SubscriptionResponse>(`/api/v1/subscriptions/${id}/activate`);
+  return response.data;
+};
+
+export const suspendSubscription = async (id: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.post<SubscriptionResponse>(`/api/v1/subscriptions/${id}/suspend`);
+  return response.data;
+};
+
+export const reactivateSubscription = async (id: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.post<SubscriptionResponse>(`/api/v1/subscriptions/${id}/reactivate`);
+  return response.data;
+};
+
+export const terminateSubscription = async (id: string): Promise<SubscriptionResponse> => {
+  const response = await apiClient.post<SubscriptionResponse>(`/api/v1/subscriptions/${id}/terminate`);
+  return response.data;
+};

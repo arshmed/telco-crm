@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import clsx from "clsx";
 import { getCustomerById, CustomerResponse, updateCustomer, approveKyc, rejectKyc, deleteCustomer, uploadDocument, getDocumentTypes, DocumentTypeOption } from "../api/customerApi";
 import { listOrders, OrderResponse } from "../api/orderApi";
+import { formatDateTime } from "../utils/dateUtils";
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>(); 
@@ -423,7 +424,7 @@ export default function CustomerDetail() {
                     </td>
                     <td className="px-gutter font-body-sm text-secondary">{order.items?.length || 0} kalem</td>
                     <td className="px-gutter font-mono-id text-right tabular-nums">{order.totalAmount?.toFixed(2)} {order.currency}</td>
-                    <td className="px-gutter font-mono-id text-right tabular-nums text-secondary">{new Date(order.createdAt).toLocaleDateString('tr-TR')}</td>
+                    <td className="px-gutter font-mono-id text-right tabular-nums text-secondary">{formatDateTime(order.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

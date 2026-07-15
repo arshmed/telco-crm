@@ -16,7 +16,8 @@ export default function CatalogManager() {
   const [formType, setFormType] = useState<"tariff" | "addon">("tariff");
 
   const [tariffForm, setTariffForm] = useState({
-    code: '', name: '', type: 'POSTPAID' as 'POSTPAID' | 'PREPAID', segment: 'CONSUMER',
+    code: '', name: '', type: 'POSTPAID' as 'POSTPAID' | 'PREPAID',
+    segment: 'ALL' as 'INDIVIDUAL' | 'CORPORATE' | 'YOUTH' | 'ALL',
     monthlyFee: 0, currency: 'TRY', minutesIncluded: 0, smsIncluded: 0, dataMbIncluded: 0,
     effectiveFrom: new Date().toISOString().split('T')[0]
   });
@@ -252,6 +253,15 @@ export default function CatalogManager() {
                     <select value={tariffForm.type} onChange={e => setTariffForm(p => ({...p, type: e.target.value as any}))}
                       className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none">
                       <option value="POSTPAID">Postpaid</option><option value="PREPAID">Prepaid</option></select></div>
+                  <div><label className="font-label-sm text-secondary mb-1 block">Segment</label>
+                    <select value={tariffForm.segment} onChange={e => setTariffForm(p => ({...p, segment: e.target.value as any}))}
+                      className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none">
+                      <option value="ALL">Tümü</option>
+                      <option value="INDIVIDUAL">Bireysel</option>
+                      <option value="CORPORATE">Kurumsal</option>
+                      <option value="YOUTH">Genç</option></select></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div><label className="font-label-sm text-secondary mb-1 block">Aylık Ücret (₺)</label>
                     <input type="number" value={tariffForm.monthlyFee} onChange={e => setTariffForm(p => ({...p, monthlyFee: Number(e.target.value)}))}
                       className="w-full border border-outline-variant rounded px-3 py-2 bg-surface text-body-sm focus:border-primary outline-none" /></div>

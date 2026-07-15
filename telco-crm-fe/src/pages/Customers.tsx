@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getCustomers, createCustomer, CustomerResponse, CustomerRequest, Page } from "../api/customerApi";
+import { formatDateTime } from "../utils/dateUtils";
 import clsx from "clsx";
 
 const CITIES = [
@@ -357,7 +358,7 @@ export default function Customers() {
                       </span>
                     </td>
                     <td className="px-gutter font-mono-id text-right tabular-nums text-secondary">
-                      {new Date(customer.createdAt).toLocaleDateString('tr-TR')}
+                      {formatDateTime(customer.createdAt)}
                     </td>
                   </tr>
                 ))

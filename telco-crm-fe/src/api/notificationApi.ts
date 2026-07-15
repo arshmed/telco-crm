@@ -22,7 +22,7 @@ export interface Page<T> {
 }
 
 export const getUserNotificationHistory = async (userId: string, page = 0, size = 10) => {
-  const response = await apiClient.get<Page<NotificationResponse>>(`/notifications/users/${userId}/history?page=${page}&size=${size}`);
+  const response = await apiClient.get<Page<NotificationResponse>>(`/api/v1/notifications/users/${userId}/history?page=${page}&size=${size}`);
   return response.data;
 };
 
@@ -34,6 +34,6 @@ export interface NotificationRequest {
 }
 
 export const sendNotification = async (data: NotificationRequest) => {
-  const response = await apiClient.post<NotificationResponse>('/notifications', data);
+  const response = await apiClient.post<NotificationResponse>('/api/v1/notifications', data);
   return response.data;
 };

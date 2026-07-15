@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { logoutFromBff } from "../../api/authApi";
 
 export function TopBar() {
   const location = useLocation();
@@ -11,31 +12,15 @@ export function TopBar() {
   const title = pathName ? pathName.charAt(0).toUpperCase() + pathName.slice(1) : 'CRM Console';
 
   useEffect(() => {
-    // JWT Token'dan kullanıcı bilgisini (preferred_username veya name) okuyalım
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      try {
-        const payloadBase64 = token.split(".")[1];
-        if (payloadBase64) {
-          const payloadJson = atob(payloadBase64);
-          const payload = JSON.parse(payloadJson);
-          
-          const fullName = payload.name || payload.preferred_username || "Sistem Kullanıcısı";
-          setUserName(fullName);
-          
-          // Ad-Soyad baş harfleri (örn: "Ahmet Yılmaz" -> "AY")
-          const parts = fullName.split(" ").filter((p: string) => p.length > 0);
-          if (parts.length >= 2) {
-            setInitials((parts[0][0] + parts[parts.length - 1][0]).toUpperCase());
-          } else {
-            setInitials(fullName.substring(0, 2).toUpperCase());
-          }
-        }
-      } catch (e) {
-        console.error("Token decode hatası", e);
-      }
-    }
-  }, [location.pathname]); // Sayfa değiştikçe de check edebiliriz (token güncellendiyse)
+    // BFF OAuth2 flow'da token session'da tutulur, tarayıcıda JWT yok
+    // Basit bir varsayılan kullanıcı adı göster
+    setUserName("TelcoX Kullanıcısı");
+    setInitials("TX");
+  }, [location.pathname]);
+
+  const handleLogout = async () => {
+    await logoutFromBff();
+  };
 
   return (
     <header className="fixed top-0 right-0 w-[calc(100%-260px)] h-[56px] bg-surface border-b border-outline-variant flex justify-between items-center px-container-padding z-30">
@@ -53,7 +38,10 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="flex items-center gap-2 hover:bg-surface-container-low transition-colors cursor-pointer active:scale-95 p-1 rounded-full pl-3 ml-2 border border-outline-variant">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-2 hover:bg-surface-container-low transition-colors cursor-pointer active:scale-95 p-1 rounded-full pl-3 ml-2 border border-outline-variant"
+        >
           <span className="font-label-md text-on-surface-variant hidden sm:block truncate max-w-[120px]">{userName}</span>
           <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-[12px] overflow-hidden shrink-0">
             {initials}

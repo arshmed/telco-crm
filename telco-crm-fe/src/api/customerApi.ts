@@ -58,41 +58,41 @@ export interface Page<T> {
 }
 
 export const getCustomers = async (page = 0, size = 20) => {
-  const response = await apiClient.get<Page<CustomerResponse>>(`/customers?page=${page}&size=${size}`);
+  const response = await apiClient.get<Page<CustomerResponse>>(`/api/v1/customers?page=${page}&size=${size}`);
   return response.data;
 };
 
 export const getCustomerById = async (id: string) => {
-  const response = await apiClient.get<CustomerResponse>(`/customers/${id}`);
+  const response = await apiClient.get<CustomerResponse>(`/api/v1/customers/${id}`);
   return response.data;
 };
 
 export const getCustomerByNo = async (customerNo: string) => {
-  const response = await apiClient.get<CustomerResponse>(`/customers/byNo/${customerNo}`);
+  const response = await apiClient.get<CustomerResponse>(`/api/v1/customers/byNo/${customerNo}`);
   return response.data;
 };
 
 export const createCustomer = async (data: CustomerRequest) => {
-  const response = await apiClient.post<CustomerResponse>('/customers', data);
+  const response = await apiClient.post<CustomerResponse>('/api/v1/customers', data);
   return response.data;
 };
 
 export const updateCustomer = async (id: string, data: CustomerRequest) => {
-  const response = await apiClient.put<CustomerResponse>(`/customers/${id}`, data);
+  const response = await apiClient.put<CustomerResponse>(`/api/v1/customers/${id}`, data);
   return response.data;
 };
 
 export const deleteCustomer = async (id: string) => {
-  await apiClient.delete(`/customers/${id}`);
+  await apiClient.delete(`/api/v1/customers/${id}`);
 };
 
 export const approveKyc = async (id: string) => {
-  const response = await apiClient.post<CustomerResponse>(`/customers/${id}/kyc/approve`);
+  const response = await apiClient.post<CustomerResponse>(`/api/v1/customers/${id}/kyc/approve`);
   return response.data;
 };
 
 export const rejectKyc = async (id: string) => {
-  const response = await apiClient.post<CustomerResponse>(`/customers/${id}/kyc/reject`);
+  const response = await apiClient.post<CustomerResponse>(`/api/v1/customers/${id}/kyc/reject`);
   return response.data;
 };
 
@@ -102,7 +102,7 @@ export interface DocumentTypeOption {
 }
 
 export const getDocumentTypes = async (): Promise<DocumentTypeOption[]> => {
-  const response = await apiClient.get<DocumentTypeOption[]>('/document-types');
+  const response = await apiClient.get<DocumentTypeOption[]>('/api/v1/document-types');
   return response.data;
 };
 
@@ -112,6 +112,6 @@ export interface DocumentRequest {
 }
 
 export const uploadDocument = async (customerId: string, data: DocumentRequest): Promise<DocumentResponse> => {
-  const response = await apiClient.post<DocumentResponse>(`/customers/${customerId}/documents`, data);
+  const response = await apiClient.post<DocumentResponse>(`/api/v1/customers/${customerId}/documents`, data);
   return response.data;
 };

@@ -1,41 +1,22 @@
-import axios from 'axios';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9011';
 
-// Keycloak ayarları
-const KEYCLOAK_URL = 'http://localhost:8085';
-const REALM = 'telcocrm-gygy5';
-const CLIENT_ID = 'telco-frontend'; // Keycloak'ta oluşturacağın/oluşturduğun Client ID
-
-export const loginWithKeycloak = async (username: string, password: string) => {
-  const tokenEndpoint = `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`;
-
-  const params = new URLSearchParams();
-  params.append('client_id', CLIENT_ID);
-  params.append('grant_type', 'password');
-  params.append('username', username);
-  params.append('password', password);
-
-  const response = await axios.post(tokenEndpoint, params, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
-
-  return response.data; // { access_token, refresh_token, expires_in, vs... }
+export const redirectToKeycloakLogin = () => {
+  window.location.href = `${API_URL}/oauth2/authorization/keycloak`;
 };
 
-export const refreshTokenWithKeycloak = async (refreshToken: string) => {
-  const tokenEndpoint = `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`;
-
-  const params = new URLSearchParams();
-  params.append('client_id', CLIENT_ID);
-  params.append('grant_type', 'refresh_token');
-  params.append('refresh_token', refreshToken);
-
-  const response = await axios.post(tokenEndpoint, params, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
-
-  return response.data;
+export const logoutFromBff = async () => {
+  try {
+    const response = await fetch(`${API_URL}/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const location = response.headers.get('Location');
+    if (location) {
+      window.location.href = location;
+    } else {
+      window.location.href = '/login';
+    }
+  } catch {
+    window.location.href = '/login';
+  }
 };

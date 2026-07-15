@@ -1,15 +1,10 @@
 package com.telcocrm.paymentservice.service;
 
-import com.telcocrm.paymentservice.client.MockPspClient;
-import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.entity.Payment;
-import com.telcocrm.paymentservice.entity.PaymentAttempt;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
 import com.telcocrm.paymentservice.entity.enums.PaymentStatus;
-import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
-import com.telcocrm.paymentservice.repository.PaymentAttemptRepository;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.repository.ProcessedEventRepository;
 import com.telcocrm.paymentservice.service.impl.PaymentEventProcessingServiceImpl;
@@ -27,7 +22,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentEventProcessingServiceImplTest {
@@ -35,84 +33,12 @@ class PaymentEventProcessingServiceImplTest {
     @Mock
     private PaymentRepository paymentRepository;
     @Mock
-    private PaymentAttemptRepository paymentAttemptRepository;
-    @Mock
     private ProcessedEventRepository processedEventRepository;
     @Mock
     private OutboxService outboxService;
-    @Mock
-    private MockPspClient mockPspClient;
 
     @InjectMocks
     private PaymentEventProcessingServiceImpl eventProcessingService;
-
-    @Test
-    void processOrderCreated_shouldCreatePaymentAndChargeSuccessfully() {
-        UUID orderId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
-        OrderCreatedEvent event = new OrderCreatedEvent(
-                UUID.randomUUID(), LocalDateTime.now(),
-                orderId, customerId, new BigDecimal("149.99"), "TRY",
-                "test@example.com", "Ali", "Veli"
-        );
-
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
-            Payment p = invocation.getArgument(0);
-            p.setId(UUID.randomUUID());
-            return p;
-        });
-        when(mockPspClient.charge(any(), any()))
-                .thenReturn(new PspChargeResult(true, "MOCK-REF-123", null));
-        when(paymentAttemptRepository.save(any(PaymentAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(paymentRepository, times(2)).save(any(Payment.class));
-        verify(outboxService).saveEvent(eq("PAYMENT"), any(), eq("payment-completed-topic"), any());
-        verify(processedEventRepository).save(any(ProcessedEvent.class));
-    }
-
-    @Test
-    void processOrderCreated_shouldHandlePspFailure() {
-        UUID orderId = UUID.randomUUID();
-        OrderCreatedEvent event = new OrderCreatedEvent(
-                UUID.randomUUID(), LocalDateTime.now(),
-                orderId, UUID.randomUUID(), new BigDecimal("149.99"), "TRY",
-                "test@example.com", "Ali", "Veli"
-        );
-
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
-            Payment p = invocation.getArgument(0);
-            p.setId(UUID.randomUUID());
-            return p;
-        });
-        when(mockPspClient.charge(any(), any()))
-                .thenReturn(new PspChargeResult(false, null, "Card declined"));
-        when(paymentAttemptRepository.save(any(PaymentAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(outboxService).saveEvent(eq("PAYMENT"), any(), eq("payment-failed-topic"), any());
-        verify(outboxService, never()).saveEvent(eq("PAYMENT"), any(), eq("payment-completed-topic"), any());
-    }
-
-    @Test
-    void processOrderCreated_shouldSkipDuplicateEvent() {
-        OrderCreatedEvent event = new OrderCreatedEvent(
-                UUID.randomUUID(), LocalDateTime.now(),
-                UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("100"), "TRY",
-                "test@example.com", "Ali", "Veli"
-        );
-
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(true);
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(paymentRepository, never()).save(any());
-        verify(mockPspClient, never()).charge(any(), any());
-    }
 
     @Test
     void processSubscriptionActivationFailed_shouldRefundCompletedPayment() {

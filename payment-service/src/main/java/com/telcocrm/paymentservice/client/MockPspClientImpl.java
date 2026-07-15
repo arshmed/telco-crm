@@ -13,9 +13,22 @@ public class MockPspClientImpl implements MockPspClient {
     private static final double SUCCESS_RATE = 0.85;
     private static final String[] FAILURE_REASONS = {"Insufficient funds", "Card declined", "Card expired"};
 
+    // Stripe test-card konvansiyonuna benzer, demo amaçlı deterministik test kartları
+    private static final String ALWAYS_DECLINED_SUFFIX = "0002";
+    private static final String ALWAYS_INSUFFICIENT_FUNDS_SUFFIX = "9995";
+
     @Override
-    public PspChargeResult charge(BigDecimal amount, PaymentMethod method) {
+    public PspChargeResult charge(BigDecimal amount, PaymentMethod method, String cardNumber) {
         simulateNetworkLatency();
+
+        String digitsOnly = cardNumber == null ? "" : cardNumber.replaceAll("\\s+", "");
+
+        if (digitsOnly.endsWith(ALWAYS_DECLINED_SUFFIX)) {
+            return new PspChargeResult(false, null, "Card declined");
+        }
+        if (digitsOnly.endsWith(ALWAYS_INSUFFICIENT_FUNDS_SUFFIX)) {
+            return new PspChargeResult(false, null, "Insufficient funds");
+        }
 
         if (Math.random() < SUCCESS_RATE) {
             return new PspChargeResult(true, "MOCK-REF-" + UUID.randomUUID(), null);

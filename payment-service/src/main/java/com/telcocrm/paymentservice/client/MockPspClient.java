@@ -7,5 +7,5 @@ import java.math.BigDecimal;
 
 public interface MockPspClient {
 
-    PspChargeResult charge(BigDecimal amount, PaymentMethod method);
+    PspChargeResult charge(BigDecimal amount, PaymentMethod method, String cardNumber);
 }

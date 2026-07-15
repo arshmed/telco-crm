@@ -13,6 +13,7 @@ import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
+import com.telcocrm.orderservice.entity.enums.OrderItemType;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
@@ -156,7 +157,12 @@ public class OrderServiceImpl implements OrderService {
                         order.getCurrency(),
                         customer.email(),
                         customer.firstName(),
-                        customer.lastName()));
+                        customer.lastName(),
+                        items.stream()
+                                .filter(i -> i.getProductType() == OrderItemType.TARIFF)
+                                .map(OrderItem::getProductCode)
+                                .findFirst()
+                                .orElse(null)));
         return orderMapper.toResponse(order);
     }
 

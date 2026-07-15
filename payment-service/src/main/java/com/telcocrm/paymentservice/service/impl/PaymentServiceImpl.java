@@ -55,9 +55,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentRefundException(paymentId, "Only completed payments can be refunded");
         }
 
+        PaymentStatus oldStatus = payment.getStatus();
         payment.setStatus(PaymentStatus.REFUNDED);
 
         paymentRepository.save(payment);
+
+        auditListener.logUpdate("Payment", payment.getId().toString(),
+                Map.of("status", oldStatus), Map.of("status", PaymentStatus.REFUNDED));
 
         outboxService.saveEvent(
                 "PAYMENT",

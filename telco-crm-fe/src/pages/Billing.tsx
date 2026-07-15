@@ -67,7 +67,21 @@ export default function Billing() {
   const totalRevenue = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + i.grandTotal, 0);
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-stack-lg">
+    <div className="max-w-[1200px] mx-auto space-y-stack-lg flex flex-col gap-4">
+      {/* Finance Tabs */}
+      <div className="border-b border-outline-variant mb-2">
+        <nav className="flex gap-8">
+          <a href="/finance/billing"
+            className="py-3 font-label-md border-b-2 border-primary text-primary transition-colors">
+            Faturalar
+          </a>
+          <a href="/finance/payments"
+            className="py-3 font-label-md border-b-2 border-transparent text-secondary hover:text-on-surface transition-colors">
+            Ödemeler
+          </a>
+        </nav>
+      </div>
+
       {/* Page Header */}
       <div className="flex justify-between items-end">
         <div>

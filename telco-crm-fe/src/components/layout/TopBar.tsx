@@ -53,27 +53,6 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative hidden md:flex items-center">
-          <span className="material-symbols-outlined absolute left-2 text-outline text-[18px]">search</span>
-          <input 
-            type="text" 
-            placeholder="Arama..." 
-            className="h-[32px] pl-8 pr-3 rounded border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary text-body-sm w-48 outline-none transition-all" 
-          />
-        </div>
-        
-        <button className="text-on-surface-variant hover:bg-surface-container-low p-1.5 rounded transition-colors active:scale-95">
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-        </button>
-        <button className="text-on-surface-variant hover:bg-surface-container-low p-1.5 rounded transition-colors active:scale-95">
-          <span className="material-symbols-outlined text-[20px]">help_outline</span>
-        </button>
-        <button className="text-on-surface-variant hover:bg-surface-container-low p-1.5 rounded transition-colors active:scale-95">
-          <span className="material-symbols-outlined text-[20px]">apps</span>
-        </button>
-        
-        <div className="h-6 w-px bg-outline-variant mx-1"></div>
-        
         <button className="flex items-center gap-2 hover:bg-surface-container-low transition-colors cursor-pointer active:scale-95 p-1 rounded-full pl-3 ml-2 border border-outline-variant">
           <span className="font-label-md text-on-surface-variant hidden sm:block truncate max-w-[120px]">{userName}</span>
           <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-[12px] overflow-hidden shrink-0">

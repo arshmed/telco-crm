@@ -22,6 +22,11 @@ spring:
                             - Path=/api/**
                           filters:
                             - TokenRelay
+
+server:
+  servlet:
+    session:
+      timeout: 8h
 eureka:
     client:
         service-url:

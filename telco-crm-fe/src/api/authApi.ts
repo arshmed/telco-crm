@@ -6,9 +6,15 @@ export const redirectToKeycloakLogin = () => {
 
 export const logoutFromBff = async () => {
   try {
+    const xsrfToken = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('XSRF-TOKEN='))
+      ?.split('=')[1];
+
     const response = await fetch(`${API_URL}/logout`, {
       method: 'POST',
       credentials: 'include',
+      headers: xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : undefined,
     });
     const location = response.headers.get('Location');
     if (location) {

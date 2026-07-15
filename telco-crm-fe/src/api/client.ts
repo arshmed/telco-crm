@@ -27,36 +27,48 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// 401 geldiğinde session süresinin dolduğu anlaşılır → login'e yönlendir
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Login sayfasındayken tekrar 401 gelirse loop'a düşme
-      if (window.location.pathname === '/login') {
-        return Promise.reject(error);
-      }
-
-      // Redirect sayacı — aşırı yönlengi engelle
-      const redirectCount = parseInt(sessionStorage.getItem(REDIRECT_KEY) || '0', 10);
-      if (redirectCount >= MAX_REDIRECTS) {
-        sessionStorage.removeItem(REDIRECT_KEY);
-        return Promise.reject(error);
-      }
-      sessionStorage.setItem(REDIRECT_KEY, String(redirectCount + 1));
-
-      alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-      window.location.href = BFF_LOGIN_URL;
-    }
-    return Promise.reject(error);
+function redirectToLogin() {
+  const redirectCount = parseInt(sessionStorage.getItem(REDIRECT_KEY) || '0', 10);
+  if (redirectCount >= MAX_REDIRECTS) {
+    sessionStorage.removeItem(REDIRECT_KEY);
+    return;
   }
-);
+  sessionStorage.setItem(REDIRECT_KEY, String(redirectCount + 1));
+  alert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+  window.location.href = BFF_LOGIN_URL;
+}
 
-// Başarılı login sonrası redirect sayacını sıfırla
+function isSessionExpired(error: any): boolean {
+  // Durum 1: 401/403 — doğrudan session süresi dolmuş
+  if (error.response?.status === 401 || error.response?.status === 403) return true;
+
+  // Durum 2: 302 redirect Keycloak'a gitti → Browser CORS preflight → 405
+  // responseURL Keycloak'a yönlenmişse session süresi dolmuştur
+  const responseURL = error.request?.responseURL || '';
+  if (responseURL.includes('localhost:8085') || responseURL.includes('/oauth2/authorization/')) return true;
+
+  // Durum 3: Yanıt HTML (Keycloak login sayfası)
+  const contentType = error.response?.headers?.['content-type'] || '';
+  if (contentType.includes('text/html')) return true;
+
+  return false;
+}
+
+// Session süresi dolduğunda login'e yönlendir
 apiClient.interceptors.response.use(
   (response) => {
+    // Başarılı yanıt ama content-type HTML ise → Keycloak login sayfasına redirect edilmiş
+    const contentType = String(response.headers['content-type'] || '');
+    if (contentType.includes('text/html')) {
+      if (window.location.pathname !== '/login') redirectToLogin();
+    }
     sessionStorage.removeItem(REDIRECT_KEY);
     return response;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    if (isSessionExpired(error) && window.location.pathname !== '/login') {
+      redirectToLogin();
+    }
+    return Promise.reject(error);
+  }
 );

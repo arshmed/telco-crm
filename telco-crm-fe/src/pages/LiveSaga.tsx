@@ -12,7 +12,7 @@ const SAGA_STEPS = [
   { id: 'COMPLETED', label: 'Sipariş Tamamlandı', service: 'order-service' },
 ];
 
-type StepStatus = "COMPLETED" | "PROCESSING" | "PENDING";
+type StepStatus = "COMPLETED" | "PROCESSING" | "PENDING" | "FAILED";
 
 export default function LiveSaga() {
   const { orderId } = useParams();
@@ -60,9 +60,21 @@ export default function LiveSaga() {
   const isCompleted = currentStepId === 'COMPLETED';
   const currentStepIndex = SAGA_STEPS.findIndex(s => s.id === currentStepId);
 
+  // order.paymentId sadece ödeme gerçekten tamamlandıysa dolar (bkz. OrderStateRules.markPaymentCompleted).
+  // Ödeme reddedildiyse saga hiç AWAITING_SUBSCRIPTION'a geçmeden FAILED'a düşer ve paymentId hep null kalır.
+  const paymentSucceeded = !!order?.paymentId;
+
   const getStatus = (index: number): StepStatus => {
     if (isCompleted) return "COMPLETED";
-    if (isFailed) return index === 0 ? "COMPLETED" : "PENDING";
+    if (isFailed) {
+      if (!paymentSucceeded) {
+        return index === 0 ? "FAILED" : "PENDING";
+      }
+      // Ödeme başarılıydı, sonraki bir adımda (abonelik aktivasyonu) başarısız olup iade edildi
+      if (index === 0) return "COMPLETED";
+      if (index === 1) return "FAILED";
+      return "PENDING";
+    }
     if (currentStepIndex === -1) return "PENDING";
     if (index < currentStepIndex) return "COMPLETED";
     if (index === currentStepIndex) return "PROCESSING";

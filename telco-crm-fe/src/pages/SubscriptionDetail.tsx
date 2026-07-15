@@ -315,7 +315,7 @@ export default function SubscriptionDetail() {
                     <span className="material-symbols-outlined text-[18px]">play_circle</span> Yeniden Aktifleştir
                   </button>
                 )}
-                {subscription.status !== 'TERMINATED' && (
+                {(subscription.status === 'ACTIVE' || subscription.status === 'SUSPENDED') && (
                   <button
                     onClick={() => handleAction(() => terminateSubscription(subscription.id))}
                     disabled={actionLoading}

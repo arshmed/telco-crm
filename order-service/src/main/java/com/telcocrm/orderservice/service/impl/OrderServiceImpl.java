@@ -111,6 +111,14 @@ public class OrderServiceImpl implements OrderService {
             items.add(orderPricingRules.buildOrderItem(itemRequest, product));
         }
 
+        // Her sipariş subscription-service tarafında yeni bir abonelik açıyor (bkz. OrderCreatedEvent.tariffCode)
+        // ve Subscription.tariffCode NOT NULL — TARIFF içermeyen bir sipariş bu alanı null yayınlar ve
+        // subscription-service'te sürekli retry eden, hiç ilerlemeyen bir saga'ya yol açar.
+        boolean hasTariffItem = items.stream().anyMatch(item -> item.getProductType() == OrderItemType.TARIFF);
+        if (!hasTariffItem) {
+            throw new IllegalArgumentException("Order must include at least one TARIFF item");
+        }
+
         BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
         Order order = Order.builder()

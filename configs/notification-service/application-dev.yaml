@@ -59,7 +59,7 @@ spring:
 
   cloud:
     function:
-      definition: customerRegisteredEvent;customerKycApprovedEvent;customerKycRejectedEvent;customerUpdatedEvent;orderCreatedEvent;orderConfirmedEvent;orderCancelledEvent;quotaThresholdReachedEvent;quotaExceededEvent
+      definition: customerRegisteredEvent;customerKycApprovedEvent;customerKycRejectedEvent;customerUpdatedEvent;orderCreatedEvent;orderConfirmedEvent;orderCancelledEvent;quotaThresholdReachedEvent;quotaExceededEvent;ticketOpenedEvent;ticketResolvedEvent
     stream:
       bindings:
         customerRegisteredEvent-in-0:
@@ -88,6 +88,12 @@ spring:
           content-type: application/json
         quotaExceededEvent-in-0:
           destination: quota-exceeded-topic
+          content-type: application/json
+        ticketOpenedEvent-in-0:
+          destination: ticket-opened-topic
+          content-type: application/json
+        ticketResolvedEvent-in-0:
+          destination: ticket-resolved-topic
           content-type: application/json
       kafka:
         binder:

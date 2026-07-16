@@ -8,14 +8,16 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "notification_templates")
+@Table(name = "notification_templates", uniqueConstraints = @UniqueConstraint(
+        name = "uq_notification_templates_code_channel_locale",
+        columnNames = {"code", "channel", "locale"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class NotificationTemplate {
 
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String code;
 
     @Enumerated(EnumType.STRING)

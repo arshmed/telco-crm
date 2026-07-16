@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
         info = @Info(
                 title = "Ticket Service API",
                 version = "v1",
-                description = "Müşteri talep yönetimi"
+                description = "Müşteri talep, şikayet ve arıza kaydı yönetimi, SLA takibi"
         ),
         security = @SecurityRequirement(name = "bearerAuth")
 )

@@ -50,4 +50,22 @@ class NotificationEventHandlerTest {
         eventHandler.customerUpdatedEvent().accept(event);
         verify(dispatcher).dispatchFromEvent(eq("CUSTOMER_UPDATED"), any(), any());
     }
+
+    @Test
+    void shouldHandleTicketOpenedEvent() {
+        UUID customerId = UUID.randomUUID();
+        var event = Map.<String, Object>of("customerId", customerId.toString(),
+                "ticketId", UUID.randomUUID().toString(), "email", "john@example.com");
+        eventHandler.ticketOpenedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent("TICKET_OPENED", customerId, event);
+    }
+
+    @Test
+    void shouldHandleTicketResolvedEvent() {
+        UUID customerId = UUID.randomUUID();
+        var event = Map.<String, Object>of("customerId", customerId.toString(),
+                "ticketId", UUID.randomUUID().toString(), "resolution", "Fixed");
+        eventHandler.ticketResolvedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent("TICKET_RESOLVED", customerId, event);
+    }
 }

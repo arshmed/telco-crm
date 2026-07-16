@@ -42,3 +42,6 @@ build/
 
 ### Local-only docs ###
 order-service/ORDER_SERVICE_DEVELOPMENT.md
+order-service/README.md
+payment-service/PAYMENT_SERVICE_DEVELOPMENT.md
+payment-service/README.md

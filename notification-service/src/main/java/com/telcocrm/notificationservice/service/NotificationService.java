@@ -14,12 +14,14 @@ import com.telcocrm.notificationservice.repository.NotificationTemplateRepositor
 import com.telcocrm.notificationservice.repository.UserCommunicationPreferenceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,10 +42,7 @@ public class NotificationService {
             return null;
         }
 
-        NotificationTemplate template = templateRepository
-                .findByCodeAndChannel(request.getTemplateCode(), request.getChannel())
-                .orElseThrow(() -> new ResourceNotFoundException("NotificationTemplate",
-                        "code+channel", request.getTemplateCode() + "/" + request.getChannel()));
+        NotificationTemplate template = findTemplate(request.getTemplateCode(), request.getChannel());
 
         String body = renderTemplate(template.getBodyTemplate(), request.getPayload());
         String subject = template.getSubject() != null
@@ -73,10 +72,26 @@ public class NotificationService {
                 .map(notificationMapper::toResponse);
     }
 
+    @Transactional(readOnly = true)
+    public List<NotificationResponse> getRecentNotifications() {
+        return notificationRepository.findTop20ByOrderByCreatedAtDesc()
+                .stream()
+                .map(notificationMapper::toResponse)
+                .toList();
+    }
+
     private boolean isUserOptedIn(UUID userId, NotificationChannel channel) {
         return preferenceRepository.findByUserIdAndChannel(userId, channel)
                 .map(UserCommunicationPreference::getOptIn)
                 .orElse(true);
+    }
+
+    @Cacheable(cacheNames = "notification-templates", key = "#code + ':' + #channel")
+    public NotificationTemplate findTemplate(String code, NotificationChannel channel) {
+        return templateRepository
+                .findByCodeAndChannel(code, channel)
+                .orElseThrow(() -> new ResourceNotFoundException("NotificationTemplate",
+                        "code+channel", code + "/" + channel));
     }
 
     private String renderTemplate(String template, Map<String, Object> payload) {

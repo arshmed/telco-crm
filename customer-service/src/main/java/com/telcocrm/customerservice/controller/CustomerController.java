@@ -33,6 +33,11 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.listCustomers(pageable));
     }
 
+    @GetMapping("/byNo/{customerNo}")
+    public ResponseEntity<CustomerResponse> getCustomerByNo(@PathVariable String customerNo) {
+        return ResponseEntity.ok(customerService.getCustomerByNo(customerNo));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CustomerResponse> getCustomer(@PathVariable UUID id) {
         return ResponseEntity.ok(customerService.getCustomer(id));

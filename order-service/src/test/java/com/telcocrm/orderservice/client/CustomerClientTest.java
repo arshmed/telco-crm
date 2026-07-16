@@ -20,6 +20,11 @@ class CustomerClientTest {
         public CustomerResponse getCustomerById(UUID id) {
             throw new UnsupportedOperationException("not used in this test");
         }
+
+        @Override
+        public CustomerResponse getCustomerByNo(String customerNo) {
+            throw new UnsupportedOperationException("not used in this test");
+        }
     };
 
     private Request dummyRequest() {

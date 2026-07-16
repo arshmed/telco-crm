@@ -71,6 +71,7 @@ class OrderControllerTest {
         return new OrderResponse(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                "C-000001",
                 OrderStatus.PENDING_PAYMENT,
                 BigDecimal.TEN,
                 "TRY",
@@ -88,6 +89,7 @@ class OrderControllerTest {
     void createOrder_shouldReturn201() throws Exception {
         var request = new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
         var response = sampleResponse();
@@ -103,7 +105,7 @@ class OrderControllerTest {
 
     @Test
     void createOrder_shouldReturn400WhenNoItems() throws Exception {
-        var request = new CreateOrderRequest(UUID.randomUUID(), List.of());
+        var request = new CreateOrderRequest(UUID.randomUUID(), null, List.of());
 
         mockMvc.perform(post("/api/v1/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,6 +116,7 @@ class OrderControllerTest {
     @Test
     void createOrder_shouldReturn400WhenCustomerIdMissing() throws Exception {
         var request = new CreateOrderRequest(
+                null,
                 null,
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
@@ -128,6 +131,7 @@ class OrderControllerTest {
     void createOrder_shouldReturn409WhenCustomerNotActive() throws Exception {
         var request = new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
         when(orderService.createOrder(any(), any())).thenThrow(new IllegalStateException("Customer " + request.customerId() + " is not active"));

@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -36,7 +37,17 @@ public class OrderAuditService {
         if (authentication != null
                 && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken)) {
-            return authentication.getName();
+            if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
+                String preferredUsername = jwtAuthentication.getToken().getClaimAsString("preferred_username");
+                if (preferredUsername != null && !preferredUsername.isBlank()) {
+                    return preferredUsername;
+                }
+            }
+
+            String name = authentication.getName();
+            if (name != null && !name.isBlank()) {
+                return name;
+            }
         }
         return SYSTEM_ACTOR;
     }

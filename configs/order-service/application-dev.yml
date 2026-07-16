@@ -5,6 +5,15 @@ spring:
                 jwt:
                     issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
                     jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+            client:
+                registration:
+                    keycloak:
+                        client-id: order-service
+                        client-secret: order-service-secret
+                        authorization-grant-type: client_credentials
+                provider:
+                    keycloak:
+                        token-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/token
     datasource:
         url: jdbc:postgresql://localhost:5404/orders
         username: postgres
@@ -20,7 +29,7 @@ spring:
         baseline-version: 0
     cloud:
         function:
-            definition: paymentCompletedEvent;paymentFailedEvent;subscriptionActivatedEvent;subscriptionActivationFailedEvent
+            definition: paymentCompletedEvent;paymentFailedEvent;subscriptionActivatedEvent;subscriptionActivationFailedEvent;paymentRefundedEvent
         stream:
             bindings:
                 paymentCompletedEvent-in-0:
@@ -35,9 +44,16 @@ spring:
                 subscriptionActivationFailedEvent-in-0:
                     destination: subscription-activation-failed-topic
                     content-type: application/json
+                paymentRefundedEvent-in-0:
+                    destination: payment-refunded-topic
+                    content-type: application/json
             kafka:
                 binder:
                     brokers: localhost:9092
+
+server:
+  port: 9004
+
 resilience4j:
   circuitbreaker:
     instances:
@@ -47,12 +63,20 @@ resilience4j:
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+        ignoreExceptions:
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.FeignException$NotFound
       productCatalogServiceCircuitBreaker:
         sliding-window-size: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+        ignoreExceptions:
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.FeignException$NotFound
 
 management:
   tracing:

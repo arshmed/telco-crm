@@ -85,12 +85,13 @@ class OrderServiceImplTest {
     private CreateOrderRequest validRequest() {
         return new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1))
         );
     }
 
     private CustomerResponse activeCustomer(UUID id) {
-        return new CustomerResponse(id, "ACTIVE", "test@email.com", "Test", "User");
+        return new CustomerResponse(id, "C-000001", "ACTIVE", "test@email.com", "Test", "User");
     }
 
     private ProductResponse activeProduct() {
@@ -144,7 +145,7 @@ class OrderServiceImplTest {
     @Test
     void shouldThrowWhenCustomerNotActive() {
         var request = validRequest();
-        var customer = new CustomerResponse(request.customerId(), "PENDING", "test@email.com", "Test", "User");
+        var customer = new CustomerResponse(request.customerId(), null, "PENDING", "test@email.com", "Test", "User");
 
         when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
 
@@ -174,6 +175,7 @@ class OrderServiceImplTest {
     void shouldThrowWhenItemsHaveMixedCurrencies() {
         var request = new CreateOrderRequest(
                 UUID.randomUUID(),
+                null,
                 List.of(
                         new OrderItemRequest("TARIFF-1", OrderItemType.TARIFF, 1),
                         new OrderItemRequest("ADDON-1", OrderItemType.ADDON, 1)
@@ -191,6 +193,34 @@ class OrderServiceImplTest {
         assertThatThrownBy(() -> orderService.createOrder(request, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("mixed currencies");
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowWhenOrderHasNoTariffItem() {
+        var request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                null,
+                List.of(new OrderItemRequest("ADDON-1", OrderItemType.ADDON, 1))
+        );
+        var customer = activeCustomer(request.customerId());
+        var addonProduct = new ProductResponse("ADDON-1", "Addon One", BigDecimal.ONE, "ACTIVE", "TRY");
+        var addonItem = OrderItem.builder()
+                .productCode("ADDON-1")
+                .productName("Addon One")
+                .productType(OrderItemType.ADDON)
+                .quantity(1)
+                .unitPrice(BigDecimal.ONE)
+                .lineTotal(BigDecimal.ONE)
+                .build();
+
+        when(customerClient.getCustomerById(request.customerId())).thenReturn(customer);
+        when(productCatalogClient.getProductByCode(OrderItemType.ADDON, "ADDON-1")).thenReturn(addonProduct);
+        when(orderPricingRules.buildOrderItem(request.items().getFirst(), addonProduct)).thenReturn(addonItem);
+
+        assertThatThrownBy(() -> orderService.createOrder(request, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("TARIFF");
         verify(orderRepository, never()).save(any());
     }
 
@@ -235,7 +265,7 @@ class OrderServiceImplTest {
         orderService.createOrder(request, "key-2");
 
         ArgumentCaptor<IdempotencyKey> keyCaptor = ArgumentCaptor.forClass(IdempotencyKey.class);
-        verify(idempotencyKeyRepository).save(keyCaptor.capture());
+        verify(idempotencyKeyRepository).saveAndFlush(keyCaptor.capture());
         assertThat(keyCaptor.getValue().getKey()).isEqualTo("key-2");
         assertThat(keyCaptor.getValue().getOrderId()).isNotNull();
     }
@@ -257,7 +287,7 @@ class OrderServiceImplTest {
             return o;
         });
         doThrow(new DataIntegrityViolationException("duplicate key"))
-                .when(idempotencyKeyRepository).save(any(IdempotencyKey.class));
+                .when(idempotencyKeyRepository).saveAndFlush(any(IdempotencyKey.class));
 
         assertThatThrownBy(() -> orderService.createOrder(request, "key-3"))
                 .isInstanceOf(DuplicateRequestException.class);
@@ -339,7 +369,7 @@ class OrderServiceImplTest {
             return null;
         }).when(orderStateRules).cancel(order, request.reason());
         when(customerClient.getCustomerById(order.getCustomerId())).thenReturn(
-                new CustomerResponse(order.getCustomerId(), "ACTIVE", "test@email.com", "Test", "User"));
+                new CustomerResponse(order.getCustomerId(), "C-000001", "ACTIVE", "test@email.com", "Test", "User"));
         when(orderMapper.toResponse(order)).thenReturn(response);
 
         OrderResponse result = orderService.cancelOrder(orderId, request);

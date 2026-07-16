@@ -3,6 +3,7 @@ package com.telcocrm.apigateway.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,10 +21,14 @@ import java.util.Map;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
+    // CORS artık yalnızca tarayıcıya doğrudan bakan bff-server'da (CorsConfig.java) tanımlanır.
+    // Burada da tanımlarsak response'a Access-Control-Allow-Origin iki kez eklenir ve tarayıcı
+    // isteği CORS ihlali sayıp engeller (bkz. bff-server proxy zinciri: browser -> bff -> gateway).
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
             .authorizeExchange(auth -> auth
+                .pathMatchers(HttpMethod.OPTIONS).permitAll() // Preflight CORS isteklerine izin ver
                 .pathMatchers("/actuator/**").permitAll()
                 .anyExchange().authenticated()
             )

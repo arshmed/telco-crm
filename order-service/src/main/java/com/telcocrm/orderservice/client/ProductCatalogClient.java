@@ -2,6 +2,7 @@ package com.telcocrm.orderservice.client;
 
 import com.telcocrm.orderservice.client.dto.ProductResponse;
 import com.telcocrm.orderservice.entity.enums.OrderItemType;
+import com.telcocrm.orderservice.exception.DownstreamAccessException;
 import com.telcocrm.orderservice.exception.ProductNotFoundException;
 import com.telcocrm.orderservice.exception.ServiceUnavailableException;
 import feign.FeignException;
@@ -33,12 +34,24 @@ public interface ProductCatalogClient {
         if (throwable instanceof FeignException.NotFound) {
             throw new ProductNotFoundException(code);
         }
+        if (throwable instanceof FeignException.Unauthorized) {
+            throw new DownstreamAccessException("Product catalog service", "JWT token rejected (401)", throwable);
+        }
+        if (throwable instanceof FeignException.Forbidden) {
+            throw new DownstreamAccessException("Product catalog service", "insufficient permissions (403)", throwable);
+        }
         throw new ServiceUnavailableException("Product catalog service", "PRODUCT_CATALOG_SERVICE_UNAVAILABLE", throwable);
     }
 
     default ProductResponse getAddonByCodeFallback(String code, Throwable throwable) {
         if (throwable instanceof FeignException.NotFound) {
             throw new ProductNotFoundException(code);
+        }
+        if (throwable instanceof FeignException.Unauthorized) {
+            throw new DownstreamAccessException("Product catalog service", "JWT token rejected (401)", throwable);
+        }
+        if (throwable instanceof FeignException.Forbidden) {
+            throw new DownstreamAccessException("Product catalog service", "insufficient permissions (403)", throwable);
         }
         throw new ServiceUnavailableException("Product catalog service", "PRODUCT_CATALOG_SERVICE_UNAVAILABLE", throwable);
     }

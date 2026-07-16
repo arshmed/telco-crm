@@ -32,6 +32,9 @@ public class Order {
     @Column(nullable = false)
     private UUID customerId;
 
+    @Column(name = "customer_no", length = 20)
+    private String customerNo;
+
     @Enumerated(EnumType.STRING) // DB'ye "DRAFT" gibi yazı olarak kaydeder, sayı değil
     @Column(nullable = false)
     private OrderStatus status;
@@ -85,4 +88,14 @@ public class Order {
     // OneToOne → Her siparişin bir Saga durumu var
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
     private SagaState sagaState;
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    public void removeItem(OrderItem item) {
+        items.remove(item);
+        item.setOrder(null);
+    }
 }

@@ -16,8 +16,11 @@ import com.telcocrm.customerservice.exception.ResourceNotFoundException;
 import com.telcocrm.customerservice.mapper.CustomerMapper;
 import com.telcocrm.customerservice.repository.CustomerRepository;
 import com.telcocrm.customerservice.repository.DocumentRepository;
+import com.telcocrm.customerservice.repository.DocumentTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,10 +41,12 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentTypeRepository documentTypeRepository;
     private final CustomerMapper customerMapper;
     private final OutboxService outboxService;
     private final CustomerAuditListener auditListener;
 
+    @CacheEvict(cacheNames = "customers", key = "#result.id")
     @Transactional
     public CustomerResponse createCustomer(CustomerRequest request) {
         validateCustomerRequest(request);
@@ -52,6 +57,7 @@ public class CustomerService {
 
         Customer customer = customerMapper.toEntity(request);
         customer.setIdentityNumberHash(identityHash);
+        customer.setCustomerNo(generateCustomerNo());
 
         if (request.getAddresses() != null) {
             List<Address> addresses = request.getAddresses().stream()
@@ -91,11 +97,21 @@ public class CustomerService {
                 .map(customerMapper::toResponse);
     }
 
+    @Cacheable(cacheNames = "customers", key = "#id")
     @Transactional(readOnly = true)
     public CustomerResponse getCustomer(UUID id) {
         return customerMapper.toResponse(findCustomerById(id));
     }
 
+    @Cacheable(cacheNames = "customers-by-no", key = "#customerNo")
+    @Transactional(readOnly = true)
+    public CustomerResponse getCustomerByNo(String customerNo) {
+        Customer customer = customerRepository.findByCustomerNo(customerNo)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer", "customerNo", customerNo));
+        return customerMapper.toResponse(customer);
+    }
+
+    @CacheEvict(cacheNames = {"customers", "customers-by-no"}, key = "#id")
     @Transactional
     public CustomerResponse updateCustomer(UUID id, CustomerRequest request) {
         validateCustomerRequest(request);
@@ -142,6 +158,7 @@ public class CustomerService {
         return customerMapper.toResponse(saved);
     }
 
+    @CacheEvict(cacheNames = {"customers", "customers-by-no"}, key = "#id")
     @Transactional
     public void deleteCustomer(UUID id) {
         Customer customer = findCustomerById(id);
@@ -153,6 +170,10 @@ public class CustomerService {
     @Transactional
     public DocumentResponse addDocument(UUID customerId, DocumentRequest request) {
         Customer customer = findCustomerById(customerId);
+
+        if (!documentTypeRepository.findById(request.getType()).isPresent()) {
+            throw new IllegalArgumentException("Invalid document type: " + request.getType());
+        }
 
         Document document = customerMapper.toEntity(request);
         document.setCustomer(customer);
@@ -239,5 +260,11 @@ public class CustomerService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);
         }
+    }
+
+    private String generateCustomerNo() {
+        String maxNo = customerRepository.findMaxCustomerNo().orElse("C-000000");
+        long nextNum = Long.parseLong(maxNo.substring(2)) + 1;
+        return String.format("C-%06d", nextNum);
     }
 }

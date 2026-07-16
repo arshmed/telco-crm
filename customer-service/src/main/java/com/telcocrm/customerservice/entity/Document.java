@@ -1,7 +1,6 @@
 package com.telcocrm.customerservice.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.telcocrm.customerservice.enums.DocumentType;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -25,9 +24,8 @@ public class Document {
     @JsonIgnore
     private Customer customer;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private DocumentType type;
+    @Column(nullable = false, length = 50)
+    private String type;
 
     @Column(name = "file_ref", nullable = false, length = 255)
     private String fileRef;

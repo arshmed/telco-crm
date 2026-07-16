@@ -1,8 +1,8 @@
 package com.telcocrm.customerservice.dto;
 
-import com.telcocrm.customerservice.enums.DocumentType;
 import lombok.*;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -11,10 +11,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DocumentResponse {
+public class DocumentResponse implements Serializable {
 
     private UUID id;
-    private DocumentType type;
+    private String type;
     private String fileRef;
     private LocalDateTime verifiedAt;
     private LocalDateTime createdAt;

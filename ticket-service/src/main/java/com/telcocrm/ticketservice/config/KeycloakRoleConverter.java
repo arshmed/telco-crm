@@ -6,33 +6,35 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
-        Collection<GrantedAuthority> authorities = extractRealmRoles(jwt).stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toSet());
-        return new JwtAuthenticationToken(jwt, authorities);
-    }
+        Collection<GrantedAuthority> authorities = new ArrayList<>();
 
-    private Collection<String> extractRealmRoles(Jwt jwt) {
-        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-        if (realmAccess == null) {
-            return List.of();
+        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+        if (realmAccess != null) {
+            Object roles = realmAccess.get("roles");
+            if (roles instanceof List<?> roleList) {
+                roleList.stream()
+                        .filter(String.class::isInstance)
+                        .map(r -> new SimpleGrantedAuthority((String) r))
+                        .forEach(authorities::add);
+            }
         }
-        Object roles = realmAccess.get("roles");
-        if (roles instanceof Collection<?> collection) {
-            return collection.stream().map(Object::toString).collect(Collectors.toSet());
-        }
-        return List.of();
+
+        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+        authorities.addAll(scopeConverter.convert(jwt));
+
+        return new JwtAuthenticationToken(jwt, authorities, jwt.getSubject());
     }
 }

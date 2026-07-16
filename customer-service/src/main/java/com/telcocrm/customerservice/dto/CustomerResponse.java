@@ -4,6 +4,7 @@ import com.telcocrm.customerservice.enums.CustomerStatus;
 import com.telcocrm.customerservice.enums.CustomerType;
 import lombok.*;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,9 +15,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CustomerResponse {
+public class CustomerResponse implements Serializable {
 
     private UUID id;
+    private String customerNo;
     private CustomerType type;
     private String firstName;
     private String lastName;

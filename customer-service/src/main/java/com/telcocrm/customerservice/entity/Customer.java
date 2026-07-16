@@ -25,6 +25,9 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "customer_no", nullable = false, unique = true, length = 20)
+    private String customerNo;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private CustomerType type;

@@ -13,6 +13,7 @@ import com.telcocrm.orderservice.entity.Order;
 import com.telcocrm.orderservice.entity.OrderItem;
 import com.telcocrm.orderservice.entity.SagaState;
 import com.telcocrm.orderservice.entity.enums.OrderStatus;
+import com.telcocrm.orderservice.entity.enums.OrderItemType;
 import com.telcocrm.orderservice.entity.enums.SagaStep;
 import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
 import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
@@ -75,9 +76,20 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        CustomerResponse customer = customerClient.getCustomerById(request.customerId());
+        CustomerResponse customer;
+        UUID customerId;
+        if (request.customerId() != null) {
+            customerId = request.customerId();
+            customer = customerClient.getCustomerById(customerId);
+        } else if (request.customerNo() != null && !request.customerNo().isBlank()) {
+            customer = customerClient.getCustomerByNo(request.customerNo());
+            customerId = customer.id();
+        } else {
+            throw new IllegalArgumentException("Either customerId or customerNo must be provided");
+        }
+
         if (!ACTIVE_STATUS.equals(customer.status())) {
-            throw new IllegalStateException("Customer " + request.customerId() + " is not active");
+            throw new IllegalStateException("Customer " + customerId + " is not active");
         }
 
         List<OrderItem> items = new ArrayList<>();
@@ -99,17 +111,25 @@ public class OrderServiceImpl implements OrderService {
             items.add(orderPricingRules.buildOrderItem(itemRequest, product));
         }
 
+        // Her sipariş subscription-service tarafında yeni bir abonelik açıyor (bkz. OrderCreatedEvent.tariffCode)
+        // ve Subscription.tariffCode NOT NULL — TARIFF içermeyen bir sipariş bu alanı null yayınlar ve
+        // subscription-service'te sürekli retry eden, hiç ilerlemeyen bir saga'ya yol açar.
+        boolean hasTariffItem = items.stream().anyMatch(item -> item.getProductType() == OrderItemType.TARIFF);
+        if (!hasTariffItem) {
+            throw new IllegalArgumentException("Order must include at least one TARIFF item");
+        }
+
         BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
 
         Order order = Order.builder()
-                .customerId(request.customerId())
+                .customerId(customerId)
+                .customerNo(customer.customerNo())
                 .status(OrderStatus.PENDING_PAYMENT)
                 .totalAmount(totalAmount)
                 .currency(currency)
                 .build();
 
-        items.forEach(item -> item.setOrder(order));
-        order.getItems().addAll(items);
+        items.forEach(order::addItem);
 
         SagaState sagaState = SagaState.builder()
                 .order(order)
@@ -122,7 +142,7 @@ public class OrderServiceImpl implements OrderService {
 
         if (hasIdempotencyKey) {
             try {
-                idempotencyKeyRepository.save(IdempotencyKey.builder()
+                idempotencyKeyRepository.saveAndFlush(IdempotencyKey.builder()
                         .key(idempotencyKey)
                         .orderId(order.getId())
                         .createdAt(Instant.now())
@@ -145,7 +165,12 @@ public class OrderServiceImpl implements OrderService {
                         order.getCurrency(),
                         customer.email(),
                         customer.firstName(),
-                        customer.lastName()));
+                        customer.lastName(),
+                        items.stream()
+                                .filter(i -> i.getProductType() == OrderItemType.TARIFF)
+                                .map(OrderItem::getProductCode)
+                                .findFirst()
+                                .orElse(null)));
         return orderMapper.toResponse(order);
     }
 

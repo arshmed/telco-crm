@@ -71,7 +71,7 @@ public class PaymentRetryScheduler {
                 "PAYMENT",
                 payment.getId().toString(),
                 "payment-completed-topic",
-                PaymentCompletedEvent.of(payment.getOrderId(), payment.getId())
+                PaymentCompletedEvent.of(payment.getOrderId(), payment.getId(), null)
             );
 
             paymentAuditService.log(payment, "Payment retry succeeded, attemptNo: " + attemptNo);

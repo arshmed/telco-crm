@@ -13,13 +13,22 @@ class PaymentCompletedEventTest {
     void of_shouldPopulateEventIdAndOccurredAtAndCarryFields() {
         UUID orderId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
+        UUID invoiceId = UUID.randomUUID();
 
-        PaymentCompletedEvent event = PaymentCompletedEvent.of(orderId, paymentId);
+        PaymentCompletedEvent event = PaymentCompletedEvent.of(orderId, paymentId, invoiceId);
 
         assertThat(event.eventId()).isNotNull();
         assertThat(event.occurredAt()).isNotNull().isBeforeOrEqualTo(LocalDateTime.now());
         assertThat(event.orderId()).isEqualTo(orderId);
         assertThat(event.paymentId()).isEqualTo(paymentId);
+        assertThat(event.invoiceId()).isEqualTo(invoiceId);
+    }
+
+    @Test
+    void of_shouldAllowNullInvoiceId() {
+        PaymentCompletedEvent event = PaymentCompletedEvent.of(UUID.randomUUID(), UUID.randomUUID(), null);
+
+        assertThat(event.invoiceId()).isNull();
     }
 
     @Test
@@ -27,8 +36,8 @@ class PaymentCompletedEventTest {
         UUID orderId = UUID.randomUUID();
         UUID paymentId = UUID.randomUUID();
 
-        PaymentCompletedEvent first = PaymentCompletedEvent.of(orderId, paymentId);
-        PaymentCompletedEvent second = PaymentCompletedEvent.of(orderId, paymentId);
+        PaymentCompletedEvent first = PaymentCompletedEvent.of(orderId, paymentId, null);
+        PaymentCompletedEvent second = PaymentCompletedEvent.of(orderId, paymentId, null);
 
         assertThat(first.eventId()).isNotEqualTo(second.eventId());
     }

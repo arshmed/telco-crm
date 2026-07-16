@@ -33,6 +33,10 @@ export default function OrderWizard() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
+  const [orderIdempotencyKey] = useState(() => crypto.randomUUID());
+
+  const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState(() => crypto.randomUUID());
+
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
     if (value.length > 16) value = value.slice(0, 16);
@@ -141,14 +145,14 @@ export default function OrderWizard() {
           ]
         };
 
-        const order = await createOrder(orderPayload);
+        const order = await createOrder(orderPayload, orderIdempotencyKey);
         orderId = order.id;
         setCreatedOrderId(order.id);
       }
 
       try {
         const payment = await createPayment({
-          paymentRequestId: crypto.randomUUID(),
+          paymentRequestId: paymentIdempotencyKey,
           orderId,
           method: 'CREDIT_CARD',
           cardHolder,
@@ -160,6 +164,7 @@ export default function OrderWizard() {
         if (payment.status === 'COMPLETED') {
           navigate(`/sales/saga/${orderId}`);
         } else {
+          setPaymentIdempotencyKey(crypto.randomUUID());
           setPaymentError(
             payment.failureReason
               ? `Kartınız reddedildi: ${payment.failureReason}. Lütfen farklı bir kartla tekrar deneyin.`

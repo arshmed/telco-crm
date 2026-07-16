@@ -1,1 +1,7 @@
-spring.application.name=ticket-service
+spring:
+  application:
+    name: ticket-service
+  profiles:
+    active: dev
+  config:
+    import: "configserver:http://localhost:8888"

@@ -40,6 +40,12 @@ public class PaymentEventProcessingServiceImpl implements PaymentEventProcessing
             return;
         }
 
+        if (paymentRepository.findByOrderId(event.orderId()).isPresent()) {
+            log.info("Payment already exists for orderId: {}, skipping auto-charge (likely created manually via frontend)",
+                    event.orderId());
+            return;
+        }
+
         Payment payment = Payment.builder()
                 .orderId(event.orderId())
                 .customerId(event.customerId())

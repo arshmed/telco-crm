@@ -34,6 +34,9 @@ public class Payment {
     @Column(nullable = false)
     private UUID orderId;
 
+    @Column
+    private UUID invoiceId;
+
     @Column(nullable = false)
     private UUID customerId;
 

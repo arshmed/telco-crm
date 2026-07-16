@@ -7,9 +7,10 @@ public record PaymentCompletedEvent(
     UUID eventId,
     LocalDateTime occurredAt,
     UUID orderId,
-    UUID paymentId
+    UUID paymentId,
+    UUID invoiceId
 ) {
-    public static PaymentCompletedEvent of(UUID orderId, UUID paymentId) {
-        return new PaymentCompletedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, paymentId);
+    public static PaymentCompletedEvent of(UUID orderId, UUID paymentId, UUID invoiceId) {
+        return new PaymentCompletedEvent(UUID.randomUUID(), LocalDateTime.now(), orderId, paymentId, invoiceId);
     }
 }

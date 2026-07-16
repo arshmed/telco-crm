@@ -54,8 +54,10 @@ export interface Page<T> {
   number: number;
 }
 
-export const createOrder = async (data: CreateOrderRequest) => {
-  const response = await apiClient.post<OrderResponse>('/api/v1/orders', data);
+export const createOrder = async (data: CreateOrderRequest, idempotencyKey?: string) => {
+  const response = await apiClient.post<OrderResponse>('/api/v1/orders', data, {
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  });
   return response.data;
 };
 

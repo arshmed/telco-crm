@@ -138,8 +138,8 @@ class PaymentControllerTest {
         when(paymentService.createPayment(any(CreatePaymentRequest.class))).thenReturn(response);
 
         CreatePaymentRequest request = new CreatePaymentRequest(
-                "req-1", UUID.randomUUID(), UUID.randomUUID(),
-                new BigDecimal("149.99"), "TRY", PaymentMethod.CREDIT_CARD
+                "req-1", UUID.randomUUID(), PaymentMethod.CREDIT_CARD,
+                "Ali Veli", "4242424242424242", "12/99", "123"
         );
 
         mockMvc.perform(post("/api/v1/payments")
@@ -154,7 +154,7 @@ class PaymentControllerTest {
     @Test
     void createPayment_shouldReturn400WhenRequestInvalid() throws Exception {
         CreatePaymentRequest request = new CreatePaymentRequest(
-                "", null, null, new BigDecimal("-5"), "", null
+                "", null, null, "", "", "", ""
         );
 
         mockMvc.perform(post("/api/v1/payments")
@@ -169,8 +169,8 @@ class PaymentControllerTest {
                 .thenThrow(new DuplicateRequestException("req-1"));
 
         CreatePaymentRequest request = new CreatePaymentRequest(
-                "req-1", UUID.randomUUID(), UUID.randomUUID(),
-                new BigDecimal("149.99"), "TRY", PaymentMethod.CREDIT_CARD
+                "req-1", UUID.randomUUID(), PaymentMethod.CREDIT_CARD,
+                "Ali Veli", "4242424242424242", "12/99", "123"
         );
 
         mockMvc.perform(post("/api/v1/payments")

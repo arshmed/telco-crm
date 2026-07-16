@@ -29,9 +29,12 @@ spring:
         baseline-version: 0
     cloud:
         function:
-            definition: subscriptionActivationFailedEvent
+            definition: orderCreatedEvent;subscriptionActivationFailedEvent
         stream:
             bindings:
+                orderCreatedEvent-in-0:
+                    destination: order-created-topic
+                    content-type: application/json
                 subscriptionActivationFailedEvent-in-0:
                     destination: subscription-activation-failed-topic
                     content-type: application/json

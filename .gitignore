@@ -5,7 +5,7 @@ target/
 
 ### Logs ###
 **/logs/
-
+**/run.log
 ### IntelliJ IDEA ###
 .idea/
 *.iws

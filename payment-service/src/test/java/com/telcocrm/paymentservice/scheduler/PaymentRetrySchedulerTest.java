@@ -52,7 +52,7 @@ class PaymentRetrySchedulerTest {
 
         paymentRetryScheduler.retryFailedPayments();
 
-        verify(mockPspClient, never()).charge(any(), any());
+        verify(mockPspClient, never()).charge(any(), any(), any());
     }
 
     @Test
@@ -61,11 +61,11 @@ class PaymentRetrySchedulerTest {
         Payment second = buildDuePayment(1);
         when(paymentRepository.findByStatusAndNextRetryAtBefore(eq(PaymentStatus.FAILED), any()))
                 .thenReturn(List.of(first, second));
-        when(mockPspClient.charge(any(), any())).thenReturn(new PspChargeResult(true, "MOCK-REF-1", null));
+        when(mockPspClient.charge(any(), any(), any())).thenReturn(new PspChargeResult(true, "MOCK-REF-1", null));
 
         paymentRetryScheduler.retryFailedPayments();
 
-        verify(mockPspClient, times(2)).charge(any(), any());
+        verify(mockPspClient, times(2)).charge(any(), any(), any());
     }
 
     @Test
@@ -73,7 +73,7 @@ class PaymentRetrySchedulerTest {
         Payment payment = buildDuePayment(1);
         when(paymentRepository.findByStatusAndNextRetryAtBefore(eq(PaymentStatus.FAILED), any()))
                 .thenReturn(List.of(payment));
-        when(mockPspClient.charge(payment.getAmount(), payment.getMethod()))
+        when(mockPspClient.charge(payment.getAmount(), payment.getMethod(), null))
                 .thenReturn(new PspChargeResult(true, "MOCK-REF-success", null));
 
         paymentRetryScheduler.retryFailedPayments();
@@ -93,7 +93,7 @@ class PaymentRetrySchedulerTest {
         Payment payment = buildDuePayment(1);
         when(paymentRepository.findByStatusAndNextRetryAtBefore(eq(PaymentStatus.FAILED), any()))
                 .thenReturn(List.of(payment));
-        when(mockPspClient.charge(any(), any())).thenReturn(new PspChargeResult(false, null, "Card declined"));
+        when(mockPspClient.charge(any(), any(), any())).thenReturn(new PspChargeResult(false, null, "Card declined"));
 
         paymentRetryScheduler.retryFailedPayments();
 
@@ -109,7 +109,7 @@ class PaymentRetrySchedulerTest {
         Payment payment = buildDuePayment(2);
         when(paymentRepository.findByStatusAndNextRetryAtBefore(eq(PaymentStatus.FAILED), any()))
                 .thenReturn(List.of(payment));
-        when(mockPspClient.charge(any(), any())).thenReturn(new PspChargeResult(false, null, "Card expired"));
+        when(mockPspClient.charge(any(), any(), any())).thenReturn(new PspChargeResult(false, null, "Card expired"));
 
         paymentRetryScheduler.retryFailedPayments();
 
@@ -124,7 +124,7 @@ class PaymentRetrySchedulerTest {
         Payment payment = buildDuePayment(3);
         when(paymentRepository.findByStatusAndNextRetryAtBefore(eq(PaymentStatus.FAILED), any()))
                 .thenReturn(List.of(payment));
-        when(mockPspClient.charge(any(), any())).thenReturn(new PspChargeResult(false, null, "Insufficient funds"));
+        when(mockPspClient.charge(any(), any(), any())).thenReturn(new PspChargeResult(false, null, "Insufficient funds"));
 
         paymentRetryScheduler.retryFailedPayments();
 

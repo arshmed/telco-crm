@@ -122,6 +122,8 @@ services:
   debezium-init:
     image: curlimages/curl:latest
     container_name: debezium-init
+    environment:
+      CONNECT_URL: http://debezium-connect:8083
     depends_on:
       debezium-connect:
         condition: service_healthy
@@ -327,6 +329,7 @@ services:
     volumes:
       - ./promtail/promtail-config.yaml:/etc/promtail/config.yaml
       - ../order-service/logs:/var/log/telco-crm/order-service:ro
+      - ../payment-service/logs:/var/log/telco-crm/payment-service:ro
     depends_on:
       - loki
     networks:

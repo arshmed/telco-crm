@@ -17,6 +17,7 @@ class MockPspClientImplTest {
     private static final Set<String> CREDIT_CARD_REASONS = Set.of("Insufficient funds", "Card declined", "Card expired");
     private static final Set<String> BANK_TRANSFER_REASONS = Set.of("Bank account not found", "Transfer limit exceeded");
     private static final Set<String> WALLET_REASONS = Set.of("Wallet balance insufficient");
+    private static final String VALID_CARD_NUMBER = "4242424242424242";
 
     private final MockPspClientImpl mockPspClient = new MockPspClientImpl();
 
@@ -25,7 +26,7 @@ class MockPspClientImplTest {
     void charge_shouldReturnStructurallyValidResultForEveryMethod(PaymentMethod method) {
         // Happy path (statistical): over many attempts every outcome must be internally consistent.
         for (int i = 0; i < 50; i++) {
-            PspChargeResult result = mockPspClient.charge(new BigDecimal("100.00"), method);
+            PspChargeResult result = mockPspClient.charge(new BigDecimal("100.00"), method, VALID_CARD_NUMBER);
 
             assertThat(result).isNotNull();
             if (result.success()) {
@@ -58,17 +59,42 @@ class MockPspClientImplTest {
 
     @RepeatedTest(5)
     void charge_shouldGenerateUniqueExternalRefOnSuccess() {
-        PspChargeResult first = mockPspClient.charge(new BigDecimal("10"), PaymentMethod.WALLET);
-        PspChargeResult second = mockPspClient.charge(new BigDecimal("10"), PaymentMethod.WALLET);
+        PspChargeResult first = mockPspClient.charge(new BigDecimal("10"), PaymentMethod.WALLET, VALID_CARD_NUMBER);
+        PspChargeResult second = mockPspClient.charge(new BigDecimal("10"), PaymentMethod.WALLET, VALID_CARD_NUMBER);
 
         if (first.success() && second.success()) {
             assertThat(first.externalRef()).isNotEqualTo(second.externalRef());
         }
     }
 
+    @Test
+    void charge_shouldAlwaysDeclineCardEndingIn0002() {
+        PspChargeResult result = mockPspClient.charge(BigDecimal.TEN, PaymentMethod.CREDIT_CARD, "4000 0000 0000 0002");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.externalRef()).isNull();
+        assertThat(result.failureReason()).isEqualTo("Card declined");
+    }
+
+    @Test
+    void charge_shouldAlwaysReturnInsufficientFundsForCardEndingIn9995() {
+        PspChargeResult result = mockPspClient.charge(BigDecimal.TEN, PaymentMethod.CREDIT_CARD, "4000 0000 0000 9995");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.externalRef()).isNull();
+        assertThat(result.failureReason()).isEqualTo("Insufficient funds");
+    }
+
+    @Test
+    void charge_shouldNotThrowWhenCardNumberIsNull() {
+        PspChargeResult result = mockPspClient.charge(BigDecimal.TEN, PaymentMethod.CREDIT_CARD, null);
+
+        assertThat(result).isNotNull();
+    }
+
     private boolean chargeUntilFailureSeen(PaymentMethod method, Set<String> expectedReasons) {
         for (int i = 0; i < 500; i++) {
-            PspChargeResult result = mockPspClient.charge(BigDecimal.TEN, method);
+            PspChargeResult result = mockPspClient.charge(BigDecimal.TEN, method, VALID_CARD_NUMBER);
             if (!result.success()) {
                 assertThat(result.failureReason()).isIn(expectedReasons);
                 return true;

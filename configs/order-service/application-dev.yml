@@ -50,6 +50,10 @@ spring:
             kafka:
                 binder:
                     brokers: localhost:9092
+
+server:
+  port: 9004
+
 resilience4j:
   circuitbreaker:
     instances:

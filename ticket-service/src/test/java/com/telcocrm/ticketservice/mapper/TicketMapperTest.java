@@ -1,6 +1,7 @@
 package com.telcocrm.ticketservice.mapper;
 
 import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
 import com.telcocrm.ticketservice.entity.Ticket;
 import com.telcocrm.ticketservice.entity.TicketComment;
 import com.telcocrm.ticketservice.entity.enums.TicketCategory;
@@ -96,6 +97,40 @@ class TicketMapperTest {
         assertThat(response.comments().get(0).id()).isEqualTo(commentId);
         assertThat(response.comments().get(0).authorId()).isEqualTo("agent-1");
         assertThat(response.comments().get(0).body()).isEqualTo("bakıyorum");
+    }
+
+    @Test
+    void shouldMapTicketToSummaryResponseWithoutComments() {
+        UUID id = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        LocalDateTime now = LocalDateTime.now();
+
+        Ticket ticket = Ticket.builder()
+                .id(id)
+                .customerId(customerId)
+                .customerName("Ayşe Yılmaz")
+                .category(TicketCategory.FAULT)
+                .priority(TicketPriority.URGENT)
+                .status(TicketStatus.ASSIGNED)
+                .description("İki gündür sinyal yok")
+                .assignedTeam("fault-team")
+                .slaDueAt(now.plusHours(4))
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        TicketSummaryResponse response = mapper.toSummaryResponse(ticket);
+
+        assertThat(response.id()).isEqualTo(id);
+        assertThat(response.customerId()).isEqualTo(customerId);
+        assertThat(response.customerName()).isEqualTo("Ayşe Yılmaz");
+        assertThat(response.category()).isEqualTo(TicketCategory.FAULT);
+        assertThat(response.priority()).isEqualTo(TicketPriority.URGENT);
+        assertThat(response.status()).isEqualTo(TicketStatus.ASSIGNED);
+        assertThat(response.description()).isEqualTo("İki gündür sinyal yok");
+        assertThat(response.assignedTeam()).isEqualTo("fault-team");
+        assertThat(response.slaDueAt()).isEqualTo(now.plusHours(4));
+        assertThat(response.createdAt()).isEqualTo(now);
     }
 
     @Test

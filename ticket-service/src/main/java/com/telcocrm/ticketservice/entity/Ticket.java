@@ -31,6 +31,9 @@ public class Ticket {
     @Column(nullable = false)
     private UUID customerId;
 
+    @Column(nullable = false, length = 200)
+    private String customerName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TicketCategory category;

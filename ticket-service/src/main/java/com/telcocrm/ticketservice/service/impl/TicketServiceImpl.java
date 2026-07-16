@@ -8,6 +8,7 @@ import com.telcocrm.ticketservice.dto.request.CreateTicketRequest;
 import com.telcocrm.ticketservice.dto.request.ResolveTicketRequest;
 import com.telcocrm.ticketservice.dto.response.TicketCommentResponse;
 import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
 import com.telcocrm.ticketservice.entity.Ticket;
 import com.telcocrm.ticketservice.entity.TicketComment;
 import com.telcocrm.ticketservice.entity.enums.TicketStatus;
@@ -25,6 +26,8 @@ import com.telcocrm.ticketservice.service.OutboxService;
 import com.telcocrm.ticketservice.service.TicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +63,7 @@ public class TicketServiceImpl implements TicketService {
 
         Ticket ticket = Ticket.builder()
                 .customerId(request.customerId())
+                .customerName(customer.firstName() + " " + customer.lastName())
                 .category(request.category())
                 .priority(request.priority())
                 .status(TicketStatus.ASSIGNED)
@@ -92,6 +96,15 @@ public class TicketServiceImpl implements TicketService {
     @Transactional(readOnly = true)
     public TicketResponse getTicketById(UUID ticketId) {
         return ticketMapper.toResponse(requireTicket(ticketId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TicketSummaryResponse> listTickets(TicketStatus status, Pageable pageable) {
+        Page<Ticket> tickets = status == null
+                ? ticketRepository.findAll(pageable)
+                : ticketRepository.findByStatus(status, pageable);
+        return tickets.map(ticketMapper::toSummaryResponse);
     }
 
     @Override

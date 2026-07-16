@@ -6,6 +6,10 @@ import com.telcocrm.ticketservice.dto.request.CreateTicketRequest;
 import com.telcocrm.ticketservice.dto.request.ResolveTicketRequest;
 import com.telcocrm.ticketservice.dto.response.TicketCommentResponse;
 import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
+import com.telcocrm.ticketservice.entity.enums.TicketStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
@@ -14,6 +18,8 @@ public interface TicketService {
     TicketResponse createTicket(CreateTicketRequest request);
 
     TicketResponse getTicketById(UUID ticketId);
+
+    Page<TicketSummaryResponse> listTickets(TicketStatus status, Pageable pageable);
 
     TicketCommentResponse addComment(UUID ticketId, AddCommentRequest request, String authorId);
 

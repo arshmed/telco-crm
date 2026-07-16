@@ -22,16 +22,18 @@ public class NotificationDispatcher {
     private final NotificationAuditListener auditListener;
     private final EmailService emailService;
 
-    private static final Map<String, String> TEMPLATE_MAP = Map.of(
-        "CUSTOMER_REGISTERED", "customer-registered",
-        "CUSTOMER_KYC_APPROVED", "customer-kyc-approved",
-        "CUSTOMER_KYC_REJECTED", "customer-kyc-rejected",
-        "CUSTOMER_UPDATED", "customer-updated",
-        "ORDER_CREATED", "order-created",
-        "ORDER_CONFIRMED", "order-confirmed",
-        "ORDER_CANCELLED", "order-cancelled",
-        "QUOTA_THRESHOLD_REACHED", "quota-threshold-reached",
-        "QUOTA_EXCEEDED", "quota-exceeded"
+    private static final Map<String, String> TEMPLATE_MAP = Map.ofEntries(
+        Map.entry("CUSTOMER_REGISTERED", "customer-registered"),
+        Map.entry("CUSTOMER_KYC_APPROVED", "customer-kyc-approved"),
+        Map.entry("CUSTOMER_KYC_REJECTED", "customer-kyc-rejected"),
+        Map.entry("CUSTOMER_UPDATED", "customer-updated"),
+        Map.entry("ORDER_CREATED", "order-created"),
+        Map.entry("ORDER_CONFIRMED", "order-confirmed"),
+        Map.entry("ORDER_CANCELLED", "order-cancelled"),
+        Map.entry("QUOTA_THRESHOLD_REACHED", "quota-threshold-reached"),
+        Map.entry("QUOTA_EXCEEDED", "quota-exceeded"),
+        Map.entry("TICKET_OPENED", "ticket-opened"),
+        Map.entry("TICKET_RESOLVED", "ticket-resolved")
     );
 
     public void dispatchFromEvent(String templateCode, UUID userId, Map<String, Object> payload) {

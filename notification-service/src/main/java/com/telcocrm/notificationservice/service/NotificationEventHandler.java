@@ -97,6 +97,24 @@ public class NotificationEventHandler {
         };
     }
 
+    @Bean
+    public Consumer<Map<String, Object>> ticketOpenedEvent() {
+        return event -> {
+            log.info("Received TicketOpenedEvent: {}", event);
+            UUID customerId = parseUuid(event.get("customerId"));
+            dispatcher.dispatchFromEvent("TICKET_OPENED", customerId, event);
+        };
+    }
+
+    @Bean
+    public Consumer<Map<String, Object>> ticketResolvedEvent() {
+        return event -> {
+            log.info("Received TicketResolvedEvent: {}", event);
+            UUID customerId = parseUuid(event.get("customerId"));
+            dispatcher.dispatchFromEvent("TICKET_RESOLVED", customerId, event);
+        };
+    }
+
     private UUID parseUuid(Object value) {
         if (value instanceof String s) return UUID.fromString(s);
         if (value instanceof UUID u) return u;

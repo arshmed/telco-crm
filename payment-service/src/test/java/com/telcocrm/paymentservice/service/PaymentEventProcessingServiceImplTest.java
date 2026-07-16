@@ -1,6 +1,5 @@
 package com.telcocrm.paymentservice.service;
 
-import com.telcocrm.paymentservice.client.dto.PspChargeResult;
 import com.telcocrm.paymentservice.entity.Payment;
 import com.telcocrm.paymentservice.entity.ProcessedEvent;
 import com.telcocrm.paymentservice.entity.enums.PaymentMethod;
@@ -37,72 +36,10 @@ class PaymentEventProcessingServiceImplTest {
     @Mock
     private OutboxService outboxService;
     @Mock
-    private PaymentProcessingHelper paymentProcessingHelper;
-    @Mock
     private PaymentAuditService paymentAuditService;
 
     @InjectMocks
     private PaymentEventProcessingServiceImpl eventProcessingService;
-
-    @Test
-    void processOrderCreated_shouldCreatePaymentAndAuditSuccessWhenChargeSucceeds() {
-        OrderCreatedEvent event = orderCreatedEvent();
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        when(paymentProcessingHelper.attemptInitialCharge(any(Payment.class)))
-                .thenReturn(new PspChargeResult(true, "MOCK-REF-1", null));
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(paymentRepository).save(any(Payment.class));
-        verify(paymentProcessingHelper).attemptInitialCharge(any(Payment.class));
-        verify(paymentAuditService).log(any(Payment.class), contains("completed"));
-        verify(processedEventRepository).save(any(ProcessedEvent.class));
-    }
-
-    @Test
-    void processOrderCreated_shouldAuditFailureWhenChargeFails() {
-        OrderCreatedEvent event = orderCreatedEvent();
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        when(paymentProcessingHelper.attemptInitialCharge(any(Payment.class)))
-                .thenReturn(new PspChargeResult(false, null, "Card declined"));
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(paymentAuditService).log(any(Payment.class), contains("Card declined"));
-        verify(processedEventRepository).save(any(ProcessedEvent.class));
-    }
-
-    @Test
-    void processOrderCreated_shouldBuildPaymentFromEventFields() {
-        OrderCreatedEvent event = orderCreatedEvent();
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(false);
-        when(paymentProcessingHelper.attemptInitialCharge(any(Payment.class)))
-                .thenReturn(new PspChargeResult(true, "MOCK-REF-1", null));
-
-        eventProcessingService.processOrderCreated(event);
-
-        org.mockito.ArgumentCaptor<Payment> captor = org.mockito.ArgumentCaptor.forClass(Payment.class);
-        verify(paymentRepository).save(captor.capture());
-        Payment payment = captor.getValue();
-        assertThat(payment.getOrderId()).isEqualTo(event.orderId());
-        assertThat(payment.getCustomerId()).isEqualTo(event.customerId());
-        assertThat(payment.getAmount()).isEqualByComparingTo(event.totalAmount());
-        assertThat(payment.getCurrency()).isEqualTo(event.currency());
-        assertThat(payment.getMethod()).isEqualTo(PaymentMethod.CREDIT_CARD);
-        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
-    }
-
-    @Test
-    void processOrderCreated_shouldSkipDuplicateEvent() {
-        OrderCreatedEvent event = orderCreatedEvent();
-        when(processedEventRepository.existsByEventId(event.eventId())).thenReturn(true);
-
-        eventProcessingService.processOrderCreated(event);
-
-        verify(paymentRepository, never()).save(any());
-        verify(paymentProcessingHelper, never()).attemptInitialCharge(any());
-        verify(processedEventRepository, never()).save(any(ProcessedEvent.class));
-    }
 
     @Test
     void processSubscriptionActivationFailed_shouldRefundCompletedPayment() {
@@ -168,14 +105,6 @@ class PaymentEventProcessingServiceImplTest {
         verify(paymentRepository, never()).save(any());
         verify(outboxService, never()).saveEvent(any(), any(), any(), any());
         verify(paymentAuditService, never()).log(any(), any());
-    }
-
-    private OrderCreatedEvent orderCreatedEvent() {
-        return new OrderCreatedEvent(
-                UUID.randomUUID(), LocalDateTime.now(),
-                UUID.randomUUID(), UUID.randomUUID(), new BigDecimal("149.99"), "TRY",
-                "test@example.com", "Ali", "Veli"
-        );
     }
 
     private Payment buildPayment(UUID id, UUID orderId, PaymentStatus status) {

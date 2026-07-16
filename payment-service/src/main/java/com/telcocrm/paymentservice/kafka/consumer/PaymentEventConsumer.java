@@ -1,5 +1,6 @@
 package com.telcocrm.paymentservice.kafka.consumer;
 
+import com.telcocrm.paymentservice.event.consume.OrderCreatedEvent;
 import com.telcocrm.paymentservice.event.consume.SubscriptionActivationFailedEvent;
 import com.telcocrm.paymentservice.service.PaymentEventProcessingService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,11 @@ import java.util.function.Consumer;
 public class PaymentEventConsumer {
 
     private final PaymentEventProcessingService paymentEventProcessingService;
+
+    @Bean
+    public Consumer<OrderCreatedEvent> orderCreatedEvent() {
+        return paymentEventProcessingService::processOrderCreated;
+    }
 
     @Bean
     public Consumer<SubscriptionActivationFailedEvent> subscriptionActivationFailedEvent() {

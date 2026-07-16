@@ -29,6 +29,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PaymentProcessingHelperTest {
 
+    private static final String VALID_CARD_NUMBER = "4242424242424242";
+
     @Mock
     private PaymentRepository paymentRepository;
     @Mock
@@ -44,10 +46,10 @@ class PaymentProcessingHelperTest {
     @Test
     void attemptInitialCharge_shouldCompletePaymentOnSuccess() {
         Payment payment = buildPendingPayment();
-        when(mockPspClient.charge(payment.getAmount(), payment.getMethod()))
+        when(mockPspClient.charge(payment.getAmount(), payment.getMethod(), VALID_CARD_NUMBER))
                 .thenReturn(new PspChargeResult(true, "MOCK-REF-abc", null));
 
-        PspChargeResult result = paymentProcessingHelper.attemptInitialCharge(payment);
+        PspChargeResult result = paymentProcessingHelper.attemptInitialCharge(payment, VALID_CARD_NUMBER);
 
         assertThat(result.success()).isTrue();
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
@@ -65,10 +67,10 @@ class PaymentProcessingHelperTest {
     @Test
     void attemptInitialCharge_shouldMarkFailedAndScheduleRetryOnFailure() {
         Payment payment = buildPendingPayment();
-        when(mockPspClient.charge(payment.getAmount(), payment.getMethod()))
+        when(mockPspClient.charge(payment.getAmount(), payment.getMethod(), VALID_CARD_NUMBER))
                 .thenReturn(new PspChargeResult(false, null, "Card declined"));
 
-        PspChargeResult result = paymentProcessingHelper.attemptInitialCharge(payment);
+        PspChargeResult result = paymentProcessingHelper.attemptInitialCharge(payment, VALID_CARD_NUMBER);
 
         assertThat(result.success()).isFalse();
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
@@ -85,13 +87,25 @@ class PaymentProcessingHelperTest {
     @Test
     void attemptInitialCharge_shouldLinkAttemptBackToPayment() {
         Payment payment = buildPendingPayment();
-        when(mockPspClient.charge(any(), any())).thenReturn(new PspChargeResult(true, "MOCK-REF-xyz", null));
+        when(mockPspClient.charge(any(), any(), any())).thenReturn(new PspChargeResult(true, "MOCK-REF-xyz", null));
 
-        paymentProcessingHelper.attemptInitialCharge(payment);
+        paymentProcessingHelper.attemptInitialCharge(payment, VALID_CARD_NUMBER);
 
         ArgumentCaptor<PaymentAttempt> captor = ArgumentCaptor.forClass(PaymentAttempt.class);
         verify(paymentAttemptRepository).save(captor.capture());
         assertThat(captor.getValue().getPayment()).isSameAs(payment);
+    }
+
+    @Test
+    void attemptInitialCharge_shouldWorkWithNullCardNumber() {
+        Payment payment = buildPendingPayment();
+        when(mockPspClient.charge(payment.getAmount(), payment.getMethod(), null))
+                .thenReturn(new PspChargeResult(true, "MOCK-REF-null-card", null));
+
+        PspChargeResult result = paymentProcessingHelper.attemptInitialCharge(payment, null);
+
+        assertThat(result.success()).isTrue();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
     }
 
     private Payment buildPendingPayment() {

@@ -45,3 +45,5 @@ order-service/ORDER_SERVICE_DEVELOPMENT.md
 order-service/README.md
 payment-service/PAYMENT_SERVICE_DEVELOPMENT.md
 payment-service/README.md
+identity-service/IDENTITY_SERVICE_DEVELOPMENT.md
+identity-service/README.md

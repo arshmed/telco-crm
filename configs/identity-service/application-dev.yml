@@ -5,6 +5,19 @@ spring:
         jwt:
           issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
           jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+  datasource:
+    url: jdbc:postgresql://localhost:5401/identity
+    username: postgres
+    password: test12345
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
 
 server:
   port: 9001

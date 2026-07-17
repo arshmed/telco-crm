@@ -24,7 +24,7 @@
         <lombok.version>1.18.46</lombok.version>
         <sonar-maven-plugin.version>4.0.0.4121</sonar-maven-plugin.version>
         <jacoco.version>0.8.12</jacoco.version>
-        <sonar.host.url>http://localhost:9001</sonar.host.url>
+        <sonar.host.url>http://localhost:9500</sonar.host.url>
         <sonar.projectKey>telco-crm</sonar.projectKey>
         <sonar.projectName>Telco CRM</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>

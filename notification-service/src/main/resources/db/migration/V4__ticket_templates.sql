@@ -1,6 +1,6 @@
 -- findByCodeAndChannel kanal başına bir satır bekliyor; UNIQUE(code) bunu imkansız
 -- kılıyordu ve V1'in ON CONFLICT (code) DO NOTHING'i SMS şablonlarını sessizce eledi.
-ALTER TABLE notification_templates DROP CONSTRAINT notification_templates_code_key;
+ALTER TABLE notification_templates DROP CONSTRAINT IF EXISTS uk_notification_templates_code_channel;
 ALTER TABLE notification_templates ADD CONSTRAINT uq_notification_templates_code_channel_locale
     UNIQUE (code, channel, locale);
 

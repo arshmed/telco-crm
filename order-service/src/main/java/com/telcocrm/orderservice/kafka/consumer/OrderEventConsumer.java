@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.function.Consumer;
 
-// TODO: subscription-service ile topic adı netleştirilecek
 @Configuration
 @RequiredArgsConstructor
 public class OrderEventConsumer {

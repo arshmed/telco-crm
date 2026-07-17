@@ -8,6 +8,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -127,6 +128,20 @@ public class GlobalExceptionHandler {
         problem.setTitle("INVALID_REQUEST");
         problem.setProperty("timestamp", Instant.now());
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.FORBIDDEN,
+            "You do not have permission to perform this action"
+        );
+        problem.setType(URI.create("https://telcocrm.com/errors/access-denied"));
+        problem.setTitle("ACCESS_DENIED");
+        problem.setProperty("errorCode", "ACCESS_DENIED");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
     @ExceptionHandler(FeignException.class)

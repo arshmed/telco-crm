@@ -330,6 +330,7 @@ services:
       - ./promtail/promtail-config.yaml:/etc/promtail/config.yaml
       - ../order-service/logs:/var/log/telco-crm/order-service:ro
       - ../payment-service/logs:/var/log/telco-crm/payment-service:ro
+      - ../identity-service/logs:/var/log/telco-crm/identity-service:ro
     depends_on:
       - loki
     networks:

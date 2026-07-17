@@ -37,7 +37,7 @@ public class KeycloakSyncService {
         return extractUserId(response, user.getUsername());
     }
 
-    private String syncUserCreationFallback(User user, Throwable throwable) {
+    String syncUserCreationFallback(User user, Throwable throwable) {
         throw new KeycloakSyncException(
                 "Failed to sync user to Keycloak: " + user.getUsername() + " - " + throwable.getMessage());
     }
@@ -48,7 +48,7 @@ public class KeycloakSyncService {
         keycloakAdminClient.assignRealmRole(keycloakUserId, List.of(role));
     }
 
-    private void syncRoleAssignmentFallback(String keycloakUserId, String roleName, Throwable throwable) {
+    void syncRoleAssignmentFallback(String keycloakUserId, String roleName, Throwable throwable) {
         throw new KeycloakSyncException(
                 "Failed to assign realm role: " + roleName + " to Keycloak user: " + keycloakUserId + " - " + throwable.getMessage());
     }

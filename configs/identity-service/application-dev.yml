@@ -5,6 +5,15 @@ spring:
         jwt:
           issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
           jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+      client:
+        registration:
+          keycloak-admin:
+            client-id: identity-service
+            client-secret: identity-service-secret
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak-admin:
+            token-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/token
   datasource:
     url: jdbc:postgresql://localhost:5401/identity
     username: postgres
@@ -19,8 +28,22 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
 
+keycloak:
+  admin:
+    base-url: http://localhost:8085/admin/realms/telcocrm-gygy5
+
 server:
   port: 9001
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      keycloakAdminCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
 
 eureka:
   client:

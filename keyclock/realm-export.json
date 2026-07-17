@@ -94,6 +94,69 @@
         "clientRole": false,
         "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
         "attributes": {}
+      },
+      {
+        "id": "aae540bc-8719-4886-82f9-78ee3e293ba8",
+        "name": "CUSTOMER",
+        "description": "Kendi hesabını, faturalarını ve taleplerini self-servis olarak yönetir",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "eeb7750f-00f8-4cb5-8a39-76526c84951d",
+        "name": "CALL_CENTER_AGENT",
+        "description": "Müşteri taleplerini karşılar, sipariş ve destek talebi oluşturur",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "1a212e03-e069-49cd-925c-68a608e12546",
+        "name": "FIELD_DEALER",
+        "description": "Sahada yeni müşteri kaydı ve sipariş oluşturma işlemlerini yürütür",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "06b25f79-e557-47e3-84da-35686a78eded",
+        "name": "MARKETING_MANAGER",
+        "description": "Kampanya ve ürün kataloğu yönetimi yapar",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "da44b700-dc99-4d45-89cb-3bc576a5b0f3",
+        "name": "SYSTEM_ADMIN",
+        "description": "Sistem genelinde kullanıcı, rol ve yetki yönetimini yürütür",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "1a1d2f09-cff2-4d61-a19f-fe4fe96ee8bd",
+        "name": "BILLING_OPERATOR",
+        "description": "Fatura oluşturma, düzeltme ve tahsilat işlemlerini yönetir",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
+      },
+      {
+        "id": "5b160e80-51fd-4c57-9e54-0d01d4c6f757",
+        "name": "SYSTEM_SERVICE",
+        "description": "Servisler arası otomatik (service-to-service) işlemleri gerçekleştirir",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "67b6971c-9169-4786-bcce-adf840c2b957",
+        "attributes": {}
       }
     ],
     "client": {
@@ -980,6 +1043,48 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "payment-service-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {},
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "organization",
+        "microprofile-jwt"
+      ]
+    },
+    {
+      "id": "4db572f0-074c-46ac-a570-2121a90e5843",
+      "clientId": "identity-service",
+      "name": "Identity Service",
+      "description": "Service account client — client_credentials ile servisler arası çağrılar; Keycloak Admin API'ye kullanıcı/rol senkronizasyonu için realm-management yetkileriyle",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "identity-service-secret",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -2665,6 +2770,24 @@
         "default-roles-telcocrm-gygy5"
       ],
       "clientRoles": {},
+      "groups": []
+    },
+    {
+      "id": "9f761102-2f4e-4b1c-ad74-dfd36759ac35",
+      "username": "service-account-identity-service",
+      "enabled": true,
+      "emailVerified": false,
+      "serviceAccountClientId": "identity-service",
+      "realmRoles": [
+        "default-roles-telcocrm-gygy5"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "view-realm"
+        ]
+      },
       "groups": []
     }
   ]

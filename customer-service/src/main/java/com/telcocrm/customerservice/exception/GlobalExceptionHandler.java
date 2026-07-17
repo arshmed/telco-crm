@@ -3,6 +3,7 @@ package com.telcocrm.customerservice.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -53,6 +54,17 @@ public class GlobalExceptionHandler {
         problem.setTitle("Bad Request");
         problem.setType(URI.create("https://telco.example/errors/bad-request"));
         problem.setInstance(URI.create(request.getRequestURI()));
+        addCorrelationId(problem, request);
+        return problem;
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ProblemDetail handleAuthorizationDenied(AuthorizationDeniedException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "You do not have permission to perform this action");
+        problem.setTitle("Access Denied");
+        problem.setType(URI.create("https://telco.example/errors/access-denied"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "ACCESS_DENIED");
         addCorrelationId(problem, request);
         return problem;
     }

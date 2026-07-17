@@ -8,6 +8,7 @@ import com.telcocrm.ticketservice.dto.request.CreateTicketRequest;
 import com.telcocrm.ticketservice.dto.request.ResolveTicketRequest;
 import com.telcocrm.ticketservice.dto.response.TicketCommentResponse;
 import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
 import com.telcocrm.ticketservice.entity.enums.TicketCategory;
 import com.telcocrm.ticketservice.entity.enums.TicketPriority;
 import com.telcocrm.ticketservice.entity.enums.TicketStatus;
@@ -18,8 +19,13 @@ import com.telcocrm.ticketservice.service.TicketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -32,6 +38,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -65,6 +72,7 @@ class TicketControllerTest {
         var controller = new TicketController(ticketService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();
     }
@@ -74,6 +82,52 @@ class TicketControllerTest {
                 TicketStatus.ASSIGNED, "Fazla ücret", "complaint-team",
                 LocalDateTime.now().plusHours(8), null, null, List.of(),
                 LocalDateTime.now(), LocalDateTime.now());
+    }
+
+    private TicketSummaryResponse sampleSummary() {
+        return new TicketSummaryResponse(ticketId, customerId, "Ayşe Yılmaz",
+                TicketCategory.COMPLAINT, TicketPriority.HIGH, TicketStatus.ASSIGNED,
+                "Fazla ücret", "complaint-team",
+                LocalDateTime.now().plusHours(8), LocalDateTime.now());
+    }
+
+    @Test
+    void shouldListTicketsAndReturn200() throws Exception {
+        when(ticketService.listTickets(eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(sampleSummary()), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/v1/tickets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(ticketId.toString()))
+                .andExpect(jsonPath("$.content[0].customerName").value("Ayşe Yılmaz"))
+                .andExpect(jsonPath("$.content[0].comments").doesNotExist());
+    }
+
+    @Test
+    void shouldPassStatusFilterToService() throws Exception {
+        when(ticketService.listTickets(eq(TicketStatus.ASSIGNED), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(sampleSummary()), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/v1/tickets").param("status", "ASSIGNED"))
+                .andExpect(status().isOk());
+
+        verify(ticketService).listTickets(eq(TicketStatus.ASSIGNED), any(Pageable.class));
+    }
+
+    @Test
+    void shouldPassPaginationParamsToService() throws Exception {
+        when(ticketService.listTickets(eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(sampleSummary()), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/v1/tickets")
+                        .param("page", "2")
+                        .param("size", "5"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(ticketService).listTickets(eq(null), captor.capture());
+        assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(5);
     }
 
     @Test

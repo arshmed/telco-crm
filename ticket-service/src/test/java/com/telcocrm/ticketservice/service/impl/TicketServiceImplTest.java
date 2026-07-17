@@ -8,6 +8,7 @@ import com.telcocrm.ticketservice.dto.request.CreateTicketRequest;
 import com.telcocrm.ticketservice.dto.request.ResolveTicketRequest;
 import com.telcocrm.ticketservice.dto.response.TicketCommentResponse;
 import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
 import com.telcocrm.ticketservice.entity.Ticket;
 import com.telcocrm.ticketservice.entity.TicketComment;
 import com.telcocrm.ticketservice.entity.enums.TicketCategory;
@@ -31,6 +32,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -119,6 +124,52 @@ class TicketServiceImplTest {
                 .build();
     }
 
+    private Ticket listableTicket() {
+        Ticket ticket = existingTicket(TicketStatus.ASSIGNED);
+        ticket.setCustomerName("Ayşe Yılmaz");
+        ticket.setCreatedAt(LocalDateTime.now(fixedClock));
+        return ticket;
+    }
+
+    private void stubSummaryMapping() {
+        when(ticketMapper.toSummaryResponse(any(Ticket.class))).thenAnswer(invocation -> {
+            Ticket t = invocation.getArgument(0);
+            return new TicketSummaryResponse(t.getId(), t.getCustomerId(), t.getCustomerName(),
+                    t.getCategory(), t.getPriority(), t.getStatus(), t.getDescription(),
+                    t.getAssignedTeam(), t.getSlaDueAt(), t.getCreatedAt());
+        });
+    }
+
+    // ---- listTickets ----
+
+    @Test
+    void shouldListAllTicketsWhenStatusIsNull() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(ticketRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(listableTicket())));
+        stubSummaryMapping();
+
+        Page<TicketSummaryResponse> result = ticketService.listTickets(null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).customerName()).isEqualTo("Ayşe Yılmaz");
+        verify(ticketRepository).findAll(pageable);
+        verify(ticketRepository, never()).findByStatus(any(), any());
+    }
+
+    @Test
+    void shouldFilterByStatusWhenStatusIsGiven() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(ticketRepository.findByStatus(TicketStatus.ASSIGNED, pageable))
+                .thenReturn(new PageImpl<>(List.of(listableTicket())));
+        stubSummaryMapping();
+
+        Page<TicketSummaryResponse> result = ticketService.listTickets(TicketStatus.ASSIGNED, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(ticketRepository).findByStatus(TicketStatus.ASSIGNED, pageable);
+        verify(ticketRepository, never()).findAll(any(Pageable.class));
+    }
+
     // ---- createTicket ----
 
     @Test
@@ -137,6 +188,19 @@ class TicketServiceImplTest {
         assertThat(saved.getAssignedTeam()).isEqualTo("fault-team");
         assertThat(saved.getSlaDueAt()).isEqualTo(LocalDateTime.now(fixedClock).plusHours(4));
         assertThat(saved.isSlaBreached()).isFalse();
+    }
+
+    @Test
+    void shouldStoreCustomerNameSnapshotOnCreate() {
+        when(customerClient.getCustomerById(customerId)).thenReturn(activeCustomer());
+        stubSaveAssigningId();
+
+        ticketService.createTicket(createRequest(TicketCategory.COMPLAINT, TicketPriority.LOW));
+
+        ArgumentCaptor<Ticket> captor = ArgumentCaptor.forClass(Ticket.class);
+        verify(ticketRepository).save(captor.capture());
+
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("Ayşe Yılmaz");
     }
 
     @Test

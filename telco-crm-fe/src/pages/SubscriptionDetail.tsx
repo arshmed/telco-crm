@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getQuota, getUsageHistory, QuotaResponse, UsageRecordResponse, Page } from "../api/usageApi";
 import {
   getSubscriptionById,
   SubscriptionResponse,
-  activateSubscription,
   suspendSubscription,
   reactivateSubscription,
   terminateSubscription,
@@ -20,7 +19,7 @@ export default function SubscriptionDetail() {
   const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageRecordResponse[]>([]);
-  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [, setLoadingSubscription] = useState(true);
   const [loadingQuota, setLoadingQuota] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState("Genel Bakış");

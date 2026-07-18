@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-config
+  labels:
+    app: payment-service
+data:
+  SERVER_PORT: "9008"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_CONFIG_IMPORT: "configserver:http://config-server:8888"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5408/payment"
+  SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS: "host.docker.internal:9092"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_PROVIDER_KEYCLOAK_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_CLIENTID: "bff-client"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_CLIENTSECRET: "bff-client-secret"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_AUTHORIZATIONGRANTTYPE: "client_credentials"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_SCOPE: "openid"
+  SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKEN_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/token"
+  MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://host.docker.internal:9411/api/v2/spans"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: "ecs"
+  LOGGING_STRUCTURED_FORMAT_FILE: "ecs"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: payment-service-secret
+  labels:
+    app: payment-service
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_PASSWORD: "test12345"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: payment-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9008
+          envFrom:
+            - configMapRef:
+                name: payment-service-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payment-service-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9008
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9008
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9008
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30

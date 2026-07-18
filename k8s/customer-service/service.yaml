@@ -1,0 +1,19 @@
+# ============================================================
+# Service: customer-service'i cluster içinden erişilebilir yapar
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+  labels:
+    app: customer-service
+spec:
+  type: ClusterIP                      # Sadece cluster içinden erişilebilir
+                                       # Gateway üzerinden dışarı açılır, kendisi açmaz
+  selector:
+    app: customer-service              # Hangi pod'lara traffic yönlendireceğini söyler
+  ports:
+    - name: http
+      port: 9002                       # Cluster içinden bu port ile erişilir
+      targetPort: 9002                 # Pod'daki container'ın dinlediği port
+      protocol: TCP

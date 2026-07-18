@@ -64,13 +64,13 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/kyc/approve")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAnyAuthority('CALL_CENTER_AGENT', 'FIELD_DEALER')")
     public ResponseEntity<CustomerResponse> approveKyc(@PathVariable UUID id) {
         return ResponseEntity.ok(customerService.approveKyc(id));
     }
 
     @PostMapping("/{id}/kyc/reject")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAnyAuthority('CALL_CENTER_AGENT', 'FIELD_DEALER')")
     public ResponseEntity<CustomerResponse> rejectKyc(@PathVariable UUID id) {
         return ResponseEntity.ok(customerService.rejectKyc(id));
     }

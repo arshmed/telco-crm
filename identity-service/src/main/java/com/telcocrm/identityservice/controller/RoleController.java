@@ -7,6 +7,7 @@ import com.telcocrm.identityservice.service.RoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -20,6 +21,7 @@ public class RoleController {
     private final RoleService roleService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody CreateRoleRequest request) {
         RoleResponse response = roleService.createRole(request);
         return ResponseEntity.created(URI.create("/api/v1/roles/" + response.name())).body(response);
@@ -31,6 +33,7 @@ public class RoleController {
     }
 
     @PostMapping("/{name}/permissions")
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<RoleResponse> assignPermission(
             @PathVariable String name,
             @Valid @RequestBody AssignPermissionRequest request) {

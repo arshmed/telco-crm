@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -25,6 +26,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.createUser(request);
         return ResponseEntity.created(URI.create("/api/v1/users/" + response.id())).body(response);
@@ -42,6 +44,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateUserRequest request) {
@@ -49,6 +52,7 @@ public class UserController {
     }
 
     @PostMapping("/{id}/roles")
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<UserResponse> assignRole(
             @PathVariable UUID id,
             @Valid @RequestBody AssignRoleRequest request) {

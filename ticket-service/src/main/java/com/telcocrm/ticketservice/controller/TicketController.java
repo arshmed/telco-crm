@@ -59,7 +59,7 @@ public class TicketController {
     }
 
     @PostMapping("/{ticketId}/assign")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('CALL_CENTER_AGENT')")
     public ResponseEntity<TicketResponse> assignTicket(
             @PathVariable UUID ticketId,
             @Valid @RequestBody AssignTicketRequest request) {
@@ -67,7 +67,7 @@ public class TicketController {
     }
 
     @PostMapping("/{ticketId}/resolve")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('CALL_CENTER_AGENT')")
     public ResponseEntity<TicketResponse> resolveTicket(
             @PathVariable UUID ticketId,
             @Valid @RequestBody ResolveTicketRequest request) {

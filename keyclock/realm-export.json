@@ -2767,6 +2767,7 @@
       ],
       "realmRoles": [
         "admin",
+        "SYSTEM_ADMIN",
         "default-roles-telcocrm-gygy5"
       ],
       "clientRoles": {},

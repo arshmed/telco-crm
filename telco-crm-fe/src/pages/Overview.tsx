@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { getSubscriptionsByStatus, getSubscriptions, getMonthlyActivations, getTariffDistribution, MonthlyActivation, TariffDistribution } from "../api/subscriptionApi";
-import { billingApi, InvoiceStats } from "../api/billingApi";
+import { getSubscriptionsByStatus, getSubscriptions, getMonthlyActivations, getTariffDistribution } from "../api/subscriptionApi";
+import { billingApi } from "../api/billingApi";
 import { getRecentNotifications, NotificationResponse } from "../api/notificationApi";
 import { formatDateTime } from "../utils/dateUtils";
 
@@ -10,9 +10,6 @@ const MONTH_LABELS: Record<string, string> = {
   "07": "Tem", "08": "Ağu", "09": "Eyl", "10": "Eki", "11": "Kas", "12": "Ara",
 };
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(amount);
-}
 
 const EVENT_ICONS: Record<string, { icon: string; color: string }> = {
   "ORDER_CREATED": { icon: "shopping_cart", color: "text-info" },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { billingApi, InvoiceResponse, BillCycleResponse } from '../api/billingApi';
+import { billingApi, InvoiceResponse } from '../api/billingApi';
 import { formatDate } from '../utils/dateUtils';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,7 +24,6 @@ function formatCurrency(amount: number) {
 
 export default function Billing() {
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
-  const [cycles, setCycles] = useState<BillCycleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(() => new Date().toISOString().split('T')[0]);
@@ -60,7 +59,6 @@ export default function Billing() {
 
   const dueCount = invoices.filter(i => i.status === 'OVERDUE').length;
   const paidCount = invoices.filter(i => i.status === 'PAID').length;
-  const issuedCount = invoices.filter(i => i.status === 'ISSUED').length;
   const totalRevenue = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + i.grandTotal, 0);
 
   return (

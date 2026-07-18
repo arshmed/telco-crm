@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import clsx from "clsx";
 import {
-  getTariffs, createTariff, updateTariff, deleteTariff, publishTariff, changeTariffPrice,
+  getTariffs, createTariff, updateTariff, deleteTariff, publishTariff,
   getAddons, createAddon, updateAddon, deleteAddon,
   TariffResponse, AddonResponse
 } from "../api/catalogApi";

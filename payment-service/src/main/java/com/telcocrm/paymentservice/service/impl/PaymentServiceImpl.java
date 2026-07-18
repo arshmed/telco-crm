@@ -19,6 +19,7 @@ import com.telcocrm.paymentservice.repository.PaymentRepository;
 import com.telcocrm.paymentservice.service.OutboxService;
 import com.telcocrm.paymentservice.service.PaymentAuditService;
 import com.telcocrm.paymentservice.service.PaymentProcessingHelper;
+import com.telcocrm.paymentservice.security.CustomerAccessGuard;
 import com.telcocrm.paymentservice.service.PaymentService;
 import com.telcocrm.paymentservice.util.CardValidator;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderClient orderClient;
     private final PaymentProcessingHelper paymentProcessingHelper;
     private final PaymentAuditService paymentAuditService;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,6 +59,7 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse getPaymentById(UUID paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        customerAccessGuard.assertOwnResource(payment.getCustomerId(), () -> new PaymentNotFoundException(paymentId));
 
         return paymentMapper.toResponse(payment);
     }

@@ -16,6 +16,7 @@ import com.telcocrm.paymentservice.exception.PaymentNotFoundException;
 import com.telcocrm.paymentservice.exception.PaymentRefundException;
 import com.telcocrm.paymentservice.mapper.PaymentMapper;
 import com.telcocrm.paymentservice.repository.PaymentRepository;
+import com.telcocrm.paymentservice.security.CustomerAccessGuard;
 import com.telcocrm.paymentservice.service.impl.PaymentServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,6 +63,8 @@ class PaymentServiceImplTest {
     private PaymentProcessingHelper paymentProcessingHelper;
     @Mock
     private PaymentAuditService paymentAuditService;
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -116,6 +119,18 @@ class PaymentServiceImplTest {
     void getPaymentById_shouldThrowWhenNotFound() {
         UUID paymentId = UUID.randomUUID();
         when(paymentRepository.findById(paymentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.getPaymentById(paymentId))
+                .isInstanceOf(PaymentNotFoundException.class);
+    }
+
+    @Test
+    void getPaymentById_shouldThrowWhenCustomerAccessGuardDenies() {
+        UUID paymentId = UUID.randomUUID();
+        Payment payment = buildPayment(paymentId, UUID.randomUUID(), PaymentStatus.COMPLETED);
+        when(paymentRepository.findById(paymentId)).thenReturn(Optional.of(payment));
+        doThrow(new PaymentNotFoundException(paymentId))
+                .when(customerAccessGuard).assertOwnResource(eq(payment.getCustomerId()), any());
 
         assertThatThrownBy(() -> paymentService.getPaymentById(paymentId))
                 .isInstanceOf(PaymentNotFoundException.class);

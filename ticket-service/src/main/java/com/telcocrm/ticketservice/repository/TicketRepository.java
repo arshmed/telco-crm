@@ -16,6 +16,10 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     Page<Ticket> findByStatus(TicketStatus status, Pageable pageable);
 
+    Page<Ticket> findByCustomerId(UUID customerId, Pageable pageable);
+
+    Page<Ticket> findByCustomerIdAndStatus(UUID customerId, TicketStatus status, Pageable pageable);
+
     @Query("""
             SELECT t FROM Ticket t
             WHERE t.slaBreached = false

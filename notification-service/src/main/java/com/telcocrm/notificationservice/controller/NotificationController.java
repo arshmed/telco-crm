@@ -2,6 +2,8 @@ package com.telcocrm.notificationservice.controller;
 
 import com.telcocrm.notificationservice.dto.NotificationRequest;
 import com.telcocrm.notificationservice.dto.NotificationResponse;
+import com.telcocrm.notificationservice.exception.ResourceNotFoundException;
+import com.telcocrm.notificationservice.security.CustomerAccessGuard;
 import com.telcocrm.notificationservice.service.NotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @PostMapping
     public ResponseEntity<NotificationResponse> sendNotification(
@@ -37,6 +40,7 @@ public class NotificationController {
     public ResponseEntity<Page<NotificationResponse>> getUserNotificationHistory(
             @PathVariable UUID userId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        customerAccessGuard.assertOwnResource(userId, () -> new ResourceNotFoundException("Notification", "userId", userId));
         return ResponseEntity.ok(notificationService.getUserNotificationHistory(userId, pageable));
     }
 

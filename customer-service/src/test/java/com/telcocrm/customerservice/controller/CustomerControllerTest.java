@@ -8,6 +8,7 @@ import com.telcocrm.customerservice.dto.DocumentResponse;
 import com.telcocrm.customerservice.enums.CustomerStatus;
 import com.telcocrm.customerservice.enums.CustomerType;
 import com.telcocrm.customerservice.exception.GlobalExceptionHandler;
+import com.telcocrm.customerservice.security.CustomerAccessGuard;
 import com.telcocrm.customerservice.service.CustomerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class CustomerControllerTest {
     @Mock
     private CustomerService customerService;
 
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
+
     private final ObjectMapper objectMapper;
 
     {
@@ -70,7 +74,7 @@ class CustomerControllerTest {
 
     @BeforeEach
     void setUp() {
-        var controller = new CustomerController(customerService);
+        var controller = new CustomerController(customerService, customerAccessGuard);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
@@ -132,6 +136,16 @@ class CustomerControllerTest {
         mockMvc.perform(get("/api/v1/customers/{id}", response.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(response.getId().toString()));
+    }
+
+    @Test
+    void getCustomer_shouldReturn404WhenCustomerAccessGuardDenies() throws Exception {
+        var id = UUID.randomUUID();
+        org.mockito.Mockito.doThrow(new com.telcocrm.customerservice.exception.ResourceNotFoundException("Customer", "id", id))
+                .when(customerAccessGuard).assertOwnResource(org.mockito.ArgumentMatchers.eq(id), org.mockito.ArgumentMatchers.any());
+
+        mockMvc.perform(get("/api/v1/customers/{id}", id))
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.telcocrm.orderservice.repository.IdempotencyKeyRepository;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.security.CustomerAccessGuard;
 import com.telcocrm.orderservice.service.OrderAuditService;
 import com.telcocrm.orderservice.service.OutboxService;
 import org.junit.jupiter.api.Test;
@@ -75,6 +76,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderStateRules orderStateRules;
+
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -325,6 +329,7 @@ class OrderServiceImplTest {
         var response = mock(OrderResponse.class);
         var page = new PageImpl<>(List.of(order));
 
+        when(customerAccessGuard.effectiveCustomerFilter(customerId)).thenReturn(customerId);
         when(orderRepository.findByCustomerIdAndDeletedFalse(eq(customerId), any(Pageable.class))).thenReturn(page);
         when(orderMapper.toResponse(order)).thenReturn(response);
 

@@ -10,6 +10,7 @@ import com.telcocrm.billingservice.event.InvoiceGeneratedEvent;
 import com.telcocrm.billingservice.event.InvoicePaidEvent;
 import com.telcocrm.billingservice.exception.ResourceNotFoundException;
 import com.telcocrm.billingservice.repository.InvoiceRepository;
+import com.telcocrm.billingservice.security.CustomerAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,12 +31,14 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final OutboxService outboxService;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @Transactional(readOnly = true)
     public Page<InvoiceResponse> listInvoices(UUID customerId, Pageable pageable) {
-        List<Invoice> invoices = customerId == null
+        UUID effectiveCustomerId = customerAccessGuard.effectiveCustomerFilter(customerId);
+        List<Invoice> invoices = effectiveCustomerId == null
                 ? invoiceRepository.findAllByOrderByCreatedAtDesc()
-                : invoiceRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+                : invoiceRepository.findByCustomerIdOrderByCreatedAtDesc(effectiveCustomerId);
         return invoices.stream()
                 .map(this::toResponse)
                 .collect(java.util.stream.Collectors.collectingAndThen(
@@ -48,6 +51,8 @@ public class InvoiceService {
     public InvoiceResponse getInvoice(UUID id) {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", id));
+        customerAccessGuard.assertOwnResource(invoice.getCustomerId(),
+                () -> new ResourceNotFoundException("Invoice", "id", id));
         return toResponse(invoice);
     }
 

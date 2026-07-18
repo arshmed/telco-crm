@@ -22,4 +22,6 @@ public interface QuotaRepository extends JpaRepository<Quota, UUID> {
     Optional<Quota> findActive(@Param("subscriptionId") UUID subscriptionId, @Param("date") LocalDate date);
 
     List<Quota> findByPeriodEndBeforeAndAggregatedAtIsNull(LocalDate date);
+
+    Optional<Quota> findFirstBySubscriptionIdOrderByPeriodStartDesc(UUID subscriptionId);
 }

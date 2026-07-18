@@ -6,6 +6,7 @@ import com.telcocrm.notificationservice.dto.NotificationRequest;
 import com.telcocrm.notificationservice.dto.NotificationResponse;
 import com.telcocrm.notificationservice.enums.NotificationChannel;
 import com.telcocrm.notificationservice.enums.NotificationStatus;
+import com.telcocrm.notificationservice.security.CustomerAccessGuard;
 import com.telcocrm.notificationservice.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,12 +37,15 @@ class NotificationControllerTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
+
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
-        var controller = new NotificationController(notificationService);
+        var controller = new NotificationController(notificationService, customerAccessGuard);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))

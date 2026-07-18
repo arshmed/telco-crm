@@ -68,6 +68,39 @@ class KeycloakSyncServiceTest {
     }
 
     @Test
+    void syncUserCreation_shouldSendCustomerIdAttributeWhenCustomerIdPresent() {
+        var customerId = UUID.randomUUID();
+        var user = User.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("agokhan")
+                .email("agokhan@example.com")
+                .fullName("Ahmet Gokhan")
+                .status(UserStatus.ACTIVE)
+                .build();
+        ResponseEntity<Void> response = ResponseEntity.created(URI.create("/admin/realms/telcocrm-gygy5/users/" + UUID.randomUUID())).build();
+        when(keycloakAdminClient.createUser(any())).thenReturn(response);
+
+        keycloakSyncService.syncUserCreation(user);
+
+        verify(keycloakAdminClient).createUser(userRepresentationCaptor.capture());
+        assertThat(userRepresentationCaptor.getValue().attributes())
+                .containsEntry("customer_id", List.of(customerId.toString()));
+    }
+
+    @Test
+    void syncUserCreation_shouldSendEmptyAttributesWhenCustomerIdAbsent() {
+        var user = aUser();
+        ResponseEntity<Void> response = ResponseEntity.created(URI.create("/admin/realms/telcocrm-gygy5/users/" + UUID.randomUUID())).build();
+        when(keycloakAdminClient.createUser(any())).thenReturn(response);
+
+        keycloakSyncService.syncUserCreation(user);
+
+        verify(keycloakAdminClient).createUser(userRepresentationCaptor.capture());
+        assertThat(userRepresentationCaptor.getValue().attributes()).isEmpty();
+    }
+
+    @Test
     void syncUserCreation_shouldSplitSingleWordFullNameAsFirstNameOnly() {
         var user = User.builder().id(UUID.randomUUID()).username("cher").email("cher@example.com").fullName("Cher").status(UserStatus.ACTIVE).build();
         ResponseEntity<Void> response = ResponseEntity.created(URI.create("/admin/realms/telcocrm-gygy5/users/" + UUID.randomUUID())).build();

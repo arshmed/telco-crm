@@ -7,6 +7,7 @@ import com.telcocrm.usageservice.entity.enums.UsageType;
 import com.telcocrm.usageservice.exception.QuotaNotFoundException;
 import com.telcocrm.usageservice.repository.QuotaRepository;
 import com.telcocrm.usageservice.repository.UsageRecordRepository;
+import com.telcocrm.usageservice.security.CustomerAccessGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -40,6 +41,9 @@ class UsageQueryServiceTest {
 
     @Mock
     private UsageRecordRepository usageRecordRepository;
+
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     @InjectMocks
     private UsageQueryService usageQueryService;
@@ -92,6 +96,18 @@ class UsageQueryServiceTest {
     }
 
     @Test
+    void shouldThrowWhenCustomerAccessGuardDeniesQuota() {
+        var subscriptionId = UUID.randomUUID();
+        var quota = aQuota(subscriptionId);
+        when(quotaRepository.findActive(eq(subscriptionId), any(LocalDate.class))).thenReturn(Optional.of(quota));
+        org.mockito.Mockito.doThrow(new QuotaNotFoundException(subscriptionId))
+                .when(customerAccessGuard).assertOwnResource(eq(quota.getCustomerId()), any());
+
+        assertThatThrownBy(() -> usageQueryService.getQuota(subscriptionId))
+                .isInstanceOf(QuotaNotFoundException.class);
+    }
+
+    @Test
     void shouldReturnHistoryForExplicitDateRange() {
         var subscriptionId = UUID.randomUUID();
         var from = LocalDateTime.of(2026, 7, 1, 0, 0);
@@ -105,6 +121,8 @@ class UsageQueryServiceTest {
                 .recordedAt(LocalDateTime.of(2026, 7, 15, 10, 0))
                 .cdrRef("cdr-1")
                 .build();
+        when(quotaRepository.findFirstBySubscriptionIdOrderByPeriodStartDesc(subscriptionId))
+                .thenReturn(Optional.of(aQuota(subscriptionId)));
         when(usageRecordRepository.findBySubscriptionIdAndRecordedAtBetween(subscriptionId, from, to, pageable))
                 .thenReturn(new PageImpl<>(List.of(record)));
 
@@ -112,6 +130,34 @@ class UsageQueryServiceTest {
 
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).cdrRef()).isEqualTo("cdr-1");
+    }
+
+    @Test
+    void shouldThrowWhenCustomerAccessGuardDeniesHistory() {
+        var subscriptionId = UUID.randomUUID();
+        var quota = aQuota(subscriptionId);
+        var pageable = PageRequest.of(0, 20);
+        when(quotaRepository.findFirstBySubscriptionIdOrderByPeriodStartDesc(subscriptionId))
+                .thenReturn(Optional.of(quota));
+        org.mockito.Mockito.doThrow(new QuotaNotFoundException(subscriptionId))
+                .when(customerAccessGuard).assertOwnResource(eq(quota.getCustomerId()), any());
+
+        assertThatThrownBy(() -> usageQueryService.getHistory(subscriptionId, null, null, pageable))
+                .isInstanceOf(QuotaNotFoundException.class);
+    }
+
+    @Test
+    void shouldPassNullResourceCustomerIdToGuardWhenNoQuotaRowExistsForSubscription() {
+        var subscriptionId = UUID.randomUUID();
+        var pageable = PageRequest.of(0, 20);
+        when(quotaRepository.findFirstBySubscriptionIdOrderByPeriodStartDesc(subscriptionId))
+                .thenReturn(Optional.empty());
+        when(usageRecordRepository.findBySubscriptionIdAndRecordedAtBetween(eq(subscriptionId), any(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        usageQueryService.getHistory(subscriptionId, null, null, pageable);
+
+        org.mockito.Mockito.verify(customerAccessGuard).assertOwnResource(org.mockito.ArgumentMatchers.isNull(), any());
     }
 
     @Test

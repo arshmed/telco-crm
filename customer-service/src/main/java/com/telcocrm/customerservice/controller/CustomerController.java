@@ -1,6 +1,8 @@
 package com.telcocrm.customerservice.controller;
 
 import com.telcocrm.customerservice.dto.*;
+import com.telcocrm.customerservice.exception.ResourceNotFoundException;
+import com.telcocrm.customerservice.security.CustomerAccessGuard;
 import com.telcocrm.customerservice.service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @PostMapping
     public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest request) {
@@ -40,6 +43,7 @@ public class CustomerController {
 
     @GetMapping("/{id}")
     public ResponseEntity<CustomerResponse> getCustomer(@PathVariable UUID id) {
+        customerAccessGuard.assertOwnResource(id, () -> new ResourceNotFoundException("Customer", "id", id));
         return ResponseEntity.ok(customerService.getCustomer(id));
     }
 
@@ -64,13 +68,13 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/kyc/approve")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAnyAuthority('CALL_CENTER_AGENT', 'FIELD_DEALER')")
     public ResponseEntity<CustomerResponse> approveKyc(@PathVariable UUID id) {
         return ResponseEntity.ok(customerService.approveKyc(id));
     }
 
     @PostMapping("/{id}/kyc/reject")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAnyAuthority('CALL_CENTER_AGENT', 'FIELD_DEALER')")
     public ResponseEntity<CustomerResponse> rejectKyc(@PathVariable UUID id) {
         return ResponseEntity.ok(customerService.rejectKyc(id));
     }

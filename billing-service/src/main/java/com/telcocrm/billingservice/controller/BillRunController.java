@@ -17,7 +17,7 @@ public class BillRunController {
     private final BillRunService billRunService;
 
     @PostMapping("/runs")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('BILLING_OPERATOR')")
     public ResponseEntity<Map<String, Object>> triggerBillRun(
             @RequestParam(required = false) String asOf) {
         LocalDate date = asOf != null ? LocalDate.parse(asOf) : LocalDate.now();

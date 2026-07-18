@@ -21,6 +21,7 @@ import com.telcocrm.ticketservice.mapper.TicketMapper;
 import com.telcocrm.ticketservice.repository.TicketCommentRepository;
 import com.telcocrm.ticketservice.repository.TicketRepository;
 import com.telcocrm.ticketservice.rules.TicketSlaRules;
+import com.telcocrm.ticketservice.security.CustomerAccessGuard;
 import com.telcocrm.ticketservice.rules.TicketStateRules;
 import com.telcocrm.ticketservice.service.OutboxService;
 import com.telcocrm.ticketservice.service.TicketService;
@@ -49,6 +50,7 @@ public class TicketServiceImpl implements TicketService {
     private final TicketSlaRules ticketSlaRules;
     private final TicketStateRules ticketStateRules;
     private final OutboxService outboxService;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @Override
     @Transactional
@@ -95,15 +97,25 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional(readOnly = true)
     public TicketResponse getTicketById(UUID ticketId) {
-        return ticketMapper.toResponse(requireTicket(ticketId));
+        Ticket ticket = requireTicket(ticketId);
+        customerAccessGuard.assertOwnResource(ticket.getCustomerId(), () -> new TicketNotFoundException(ticketId));
+        return ticketMapper.toResponse(ticket);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<TicketSummaryResponse> listTickets(TicketStatus status, Pageable pageable) {
-        Page<Ticket> tickets = status == null
-                ? ticketRepository.findAll(pageable)
-                : ticketRepository.findByStatus(status, pageable);
+        UUID restrictedCustomerId = customerAccessGuard.effectiveCustomerFilter(null);
+        Page<Ticket> tickets;
+        if (restrictedCustomerId != null) {
+            tickets = status == null
+                    ? ticketRepository.findByCustomerId(restrictedCustomerId, pageable)
+                    : ticketRepository.findByCustomerIdAndStatus(restrictedCustomerId, status, pageable);
+        } else {
+            tickets = status == null
+                    ? ticketRepository.findAll(pageable)
+                    : ticketRepository.findByStatus(status, pageable);
+        }
         return tickets.map(ticketMapper::toSummaryResponse);
     }
 

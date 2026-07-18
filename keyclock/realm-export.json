@@ -582,6 +582,24 @@
       "authenticationFlowBindingOverrides": {},
       "fullScopeAllowed": true,
       "nodeReRegistrationTimeout": -1,
+      "protocolMappers": [
+        {
+          "id": "f1a2b3c4-d5e6-7890-abcd-ef1234567891",
+          "name": "customer id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "user.attribute": "customer_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "customer_id",
+            "jsonType.label": "String"
+          }
+        }
+      ],
       "defaultClientScopes": [
         "web-origins",
         "acr",
@@ -2767,6 +2785,7 @@
       ],
       "realmRoles": [
         "admin",
+        "SYSTEM_ADMIN",
         "default-roles-telcocrm-gygy5"
       ],
       "clientRoles": {},

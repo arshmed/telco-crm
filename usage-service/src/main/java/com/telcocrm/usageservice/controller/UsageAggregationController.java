@@ -20,7 +20,7 @@ public class UsageAggregationController {
     private final UsageAggregationService usageAggregationService;
 
     @PostMapping("/run")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAnyAuthority('SYSTEM_ADMIN', 'SYSTEM_SERVICE')")
     public AggregationRunResponse run(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
         return usageAggregationService.run(asOf != null ? asOf : LocalDate.now());

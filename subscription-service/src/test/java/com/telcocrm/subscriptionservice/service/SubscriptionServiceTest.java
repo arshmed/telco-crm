@@ -19,6 +19,7 @@ import com.telcocrm.subscriptionservice.exception.SubscriptionNotFoundException;
 import com.telcocrm.subscriptionservice.mapper.SubscriptionMapper;
 import com.telcocrm.subscriptionservice.repository.SubscriptionAddonRepository;
 import com.telcocrm.subscriptionservice.repository.SubscriptionRepository;
+import com.telcocrm.subscriptionservice.security.CustomerAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,6 +57,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private SubscriptionMapper subscriptionMapper;
+
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     @InjectMocks
     private SubscriptionService subscriptionService;
@@ -247,6 +252,30 @@ class SubscriptionServiceTest {
 
         assertThatThrownBy(() -> subscriptionService.getSubscription(UUID.randomUUID()))
                 .isInstanceOf(SubscriptionNotFoundException.class);
+    }
+
+    @Test
+    void getSubscription_deniedByCustomerAccessGuard_throwsException() {
+        when(subscriptionRepository.findById(subscription.getId())).thenReturn(Optional.of(subscription));
+        doThrow(new SubscriptionNotFoundException("denied"))
+                .when(customerAccessGuard).assertOwnResource(eq(subscription.getCustomerId()), any());
+
+        assertThatThrownBy(() -> subscriptionService.getSubscription(subscription.getId()))
+                .isInstanceOf(SubscriptionNotFoundException.class);
+    }
+
+    @Test
+    void getSubscriptions_filtersByOwnCustomerIdWhenCustomerAccessGuardRestricts() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(customerAccessGuard.effectiveCustomerFilter(null)).thenReturn(subscription.getCustomerId());
+        when(subscriptionRepository.findByCustomerId(subscription.getCustomerId(), pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(subscription)));
+        when(subscriptionMapper.toResponse(subscription)).thenReturn(subscriptionResponse);
+
+        var result = subscriptionService.getSubscriptions(pageable);
+
+        assertThat(result.getContent()).containsExactly(subscriptionResponse);
+        verify(subscriptionRepository, never()).findAll(any(org.springframework.data.domain.Pageable.class));
     }
 
     @Test

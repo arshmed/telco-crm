@@ -12,6 +12,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -116,6 +117,16 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("MALFORMED_REQUEST", response.getBody().getTitle());
+    }
+
+    @Test
+    void authorizationDeniedExceptionReturns403() {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleAuthorizationDeniedException(new AuthorizationDeniedException("Access Denied"));
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals("ACCESS_DENIED", response.getBody().getTitle());
+        assertEquals("ACCESS_DENIED", response.getBody().getProperties().get("errorCode"));
     }
 
     @Test

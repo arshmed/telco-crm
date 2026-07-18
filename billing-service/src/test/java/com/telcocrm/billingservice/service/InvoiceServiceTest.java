@@ -6,6 +6,7 @@ import com.telcocrm.billingservice.entity.InvoiceLine;
 import com.telcocrm.billingservice.enums.InvoiceStatus;
 import com.telcocrm.billingservice.exception.ResourceNotFoundException;
 import com.telcocrm.billingservice.repository.InvoiceRepository;
+import com.telcocrm.billingservice.security.CustomerAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +37,8 @@ class InvoiceServiceTest {
     private InvoiceRepository invoiceRepository;
     @Mock
     private OutboxService outboxService;
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     @InjectMocks
     private InvoiceService invoiceService;
@@ -45,6 +49,8 @@ class InvoiceServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(customerAccessGuard.effectiveCustomerFilter(any())).thenAnswer(inv -> inv.getArgument(0));
+
         customerId = UUID.randomUUID();
         invoiceId = UUID.randomUUID();
 
@@ -126,6 +132,16 @@ class InvoiceServiceTest {
         assertThatThrownBy(() -> invoiceService.getInvoice(invoiceId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Invoice");
+    }
+
+    @Test
+    void getInvoice_deniedByCustomerAccessGuard_throws() {
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        doThrow(new ResourceNotFoundException("Invoice", "id", invoiceId))
+                .when(customerAccessGuard).assertOwnResource(eq(customerId), any());
+
+        assertThatThrownBy(() -> invoiceService.getInvoice(invoiceId))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

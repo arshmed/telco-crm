@@ -19,6 +19,7 @@ import com.telcocrm.subscriptionservice.exception.SubscriptionNotFoundException;
 import com.telcocrm.subscriptionservice.mapper.SubscriptionMapper;
 import com.telcocrm.subscriptionservice.repository.SubscriptionAddonRepository;
 import com.telcocrm.subscriptionservice.repository.SubscriptionRepository;
+import com.telcocrm.subscriptionservice.security.CustomerAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -41,6 +42,7 @@ public class SubscriptionService {
     private final CustomerClient customerClient;
     private final ProductCatalogClient productCatalogClient;
     private final SubscriptionMapper subscriptionMapper;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @Transactional
     public SubscriptionResponse createSubscription(CreateSubscriptionRequest request) {
@@ -203,11 +205,18 @@ public class SubscriptionService {
     @Transactional(readOnly = true)
     public SubscriptionResponse getSubscription(UUID id) {
         Subscription subscription = getSubscriptionEntity(id);
+        customerAccessGuard.assertOwnResource(subscription.getCustomerId(),
+                () -> new SubscriptionNotFoundException("Subscription not found with id: " + id));
         return subscriptionMapper.toResponse(subscription);
     }
 
     @Transactional(readOnly = true)
     public Page<SubscriptionResponse> getSubscriptions(Pageable pageable) {
+        UUID restrictedCustomerId = customerAccessGuard.effectiveCustomerFilter(null);
+        if (restrictedCustomerId != null) {
+            return subscriptionRepository.findByCustomerId(restrictedCustomerId, pageable)
+                    .map(subscriptionMapper::toResponse);
+        }
         return subscriptionRepository.findAll(pageable)
                 .map(subscriptionMapper::toResponse);
     }

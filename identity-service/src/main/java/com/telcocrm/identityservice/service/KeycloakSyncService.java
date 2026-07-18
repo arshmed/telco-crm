@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -30,7 +31,8 @@ public class KeycloakSyncService {
                 user.getEmail(),
                 nameParts[0],
                 nameParts[1],
-                true
+                true,
+                buildAttributes(user)
         );
 
         ResponseEntity<Void> response = keycloakAdminClient.createUser(representation);
@@ -60,6 +62,13 @@ public class KeycloakSyncService {
         }
         String path = location.getPath();
         return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    private Map<String, List<String>> buildAttributes(User user) {
+        if (user.getCustomerId() == null) {
+            return Map.of();
+        }
+        return Map.of("customer_id", List.of(user.getCustomerId().toString()));
     }
 
     private String[] splitName(String fullName) {

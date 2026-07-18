@@ -25,6 +25,7 @@ import com.telcocrm.ticketservice.repository.TicketCommentRepository;
 import com.telcocrm.ticketservice.repository.TicketRepository;
 import com.telcocrm.ticketservice.rules.TicketSlaRules;
 import com.telcocrm.ticketservice.rules.TicketStateRules;
+import com.telcocrm.ticketservice.security.CustomerAccessGuard;
 import com.telcocrm.ticketservice.service.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -73,6 +75,8 @@ class TicketServiceImplTest {
     private TicketCommentMapper ticketCommentMapper;
     @Mock
     private OutboxService outboxService;
+    @Mock
+    private CustomerAccessGuard customerAccessGuard;
 
     private TicketServiceImpl ticketService;
 
@@ -90,7 +94,8 @@ class TicketServiceImplTest {
                 ticketCommentMapper,
                 new TicketSlaRules(fixedClock),
                 new TicketStateRules(fixedClock),
-                outboxService);
+                outboxService,
+                customerAccessGuard);
     }
 
     private CustomerResponse activeCustomer() {
@@ -170,7 +175,20 @@ class TicketServiceImplTest {
         verify(ticketRepository, never()).findAll(any(Pageable.class));
     }
 
-    // ---- createTicket ----
+    @Test
+    void shouldFilterByOwnCustomerIdWhenCustomerAccessGuardRestricts() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(customerAccessGuard.effectiveCustomerFilter(null)).thenReturn(customerId);
+        when(ticketRepository.findByCustomerId(customerId, pageable))
+                .thenReturn(new PageImpl<>(List.of(listableTicket())));
+        stubSummaryMapping();
+
+        Page<TicketSummaryResponse> result = ticketService.listTickets(null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(ticketRepository).findByCustomerId(customerId, pageable);
+        verify(ticketRepository, never()).findAll(any(Pageable.class));
+    }
 
     @Test
     void shouldCreateTicketWithAutoAssignedTeamAndSlaDueDate() {
@@ -237,8 +255,6 @@ class TicketServiceImplTest {
         verifyNoInteractions(outboxService);
     }
 
-    // ---- getTicketById ----
-
     @Test
     void shouldReturnTicketById() {
         Ticket ticket = existingTicket(TicketStatus.ASSIGNED);
@@ -257,7 +273,16 @@ class TicketServiceImplTest {
                 .isInstanceOf(TicketNotFoundException.class);
     }
 
-    // ---- addComment ----
+    @Test
+    void shouldThrowWhenCustomerAccessGuardDeniesOwnership() {
+        Ticket ticket = existingTicket(TicketStatus.ASSIGNED);
+        when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        doThrow(new TicketNotFoundException(ticketId))
+                .when(customerAccessGuard).assertOwnResource(eq(customerId), any());
+
+        assertThatThrownBy(() -> ticketService.getTicketById(ticketId))
+                .isInstanceOf(TicketNotFoundException.class);
+    }
 
     @Test
     void shouldAddCommentWithAuthorFromCaller() {
@@ -279,8 +304,6 @@ class TicketServiceImplTest {
         assertThat(response).isNotNull();
     }
 
-    // ---- assignTicket ----
-
     @Test
     void shouldReassignTicketWithoutPublishingEvent() {
         Ticket ticket = existingTicket(TicketStatus.ASSIGNED);
@@ -301,8 +324,6 @@ class TicketServiceImplTest {
         assertThatThrownBy(() -> ticketService.assignTicket(ticketId, new AssignTicketRequest("fault-team")))
                 .isInstanceOf(TicketNotModifiableException.class);
     }
-
-    // ---- resolveTicket ----
 
     @Test
     void shouldResolveTicketAndPublishEventWithCustomerContact() {

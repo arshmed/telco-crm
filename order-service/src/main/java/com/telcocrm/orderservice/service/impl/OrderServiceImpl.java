@@ -24,6 +24,7 @@ import com.telcocrm.orderservice.repository.IdempotencyKeyRepository;
 import com.telcocrm.orderservice.repository.OrderRepository;
 import com.telcocrm.orderservice.rules.OrderPricingRules;
 import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.security.CustomerAccessGuard;
 import com.telcocrm.orderservice.service.OrderAuditService;
 import com.telcocrm.orderservice.service.OrderService;
 import com.telcocrm.orderservice.service.OutboxService;
@@ -59,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderAuditService orderAuditService;
     private final OrderPricingRules orderPricingRules;
     private final OrderStateRules orderStateRules;
+    private final CustomerAccessGuard customerAccessGuard;
 
     @Override
     @Transactional
@@ -179,6 +181,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse getOrderById(UUID orderId) {
         Order order = orderRepository.findByIdAndDeletedFalse(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
+        customerAccessGuard.assertOwnResource(order.getCustomerId(), () -> new OrderNotFoundException(orderId));
 
         return orderMapper.toResponse(order);
     }
@@ -186,8 +189,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<OrderResponse> listOrders(UUID customerId, Pageable pageable) {
-        Page<Order> orders = (customerId != null)
-                ? orderRepository.findByCustomerIdAndDeletedFalse(customerId, pageable)
+        UUID effectiveCustomerId = customerAccessGuard.effectiveCustomerFilter(customerId);
+        Page<Order> orders = (effectiveCustomerId != null)
+                ? orderRepository.findByCustomerIdAndDeletedFalse(effectiveCustomerId, pageable)
                 : orderRepository.findByDeletedFalse(pageable);
 
         return orders.map(orderMapper::toResponse);
@@ -199,6 +203,7 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = orderRepository.findByIdAndDeletedFalse(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
+        customerAccessGuard.assertOwnResource(order.getCustomerId(), () -> new OrderNotFoundException(orderId));
 
         orderStateRules.cancel(order, request.reason());
 

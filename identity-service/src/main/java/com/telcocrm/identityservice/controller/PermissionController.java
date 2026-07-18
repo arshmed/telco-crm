@@ -6,6 +6,7 @@ import com.telcocrm.identityservice.service.PermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -19,6 +20,7 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SYSTEM_ADMIN')")
     public ResponseEntity<PermissionResponse> createPermission(@Valid @RequestBody CreatePermissionRequest request) {
         PermissionResponse response = permissionService.createPermission(request);
         return ResponseEntity.created(URI.create("/api/v1/permissions/" + response.id())).body(response);

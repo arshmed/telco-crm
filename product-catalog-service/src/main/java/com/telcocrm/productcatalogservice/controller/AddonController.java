@@ -23,7 +23,7 @@ public class AddonController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public ResponseEntity<AddonResponse> create(@Valid @RequestBody AddonCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(addonService.create(request));
     }
@@ -42,13 +42,13 @@ public class AddonController {
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public AddonResponse update(@PathVariable String code, @Valid @RequestBody AddonUpdateRequest request) {
         return addonService.update(code, request);
     }
 
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         addonService.delete(code);
         return ResponseEntity.noContent().build();

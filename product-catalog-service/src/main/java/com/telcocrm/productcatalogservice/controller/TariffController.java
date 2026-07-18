@@ -26,7 +26,7 @@ public class TariffController {
     private final TariffService tariffService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public ResponseEntity<TariffResponse> create(@Valid @RequestBody TariffCreateRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tariffService.create(request));
     }
@@ -54,25 +54,25 @@ public class TariffController {
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public TariffResponse update(@PathVariable String code, @Valid @RequestBody TariffUpdateRequest request) {
         return tariffService.update(code, request);
     }
 
     @PatchMapping("/{code}/price")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public TariffResponse changePrice(@PathVariable String code, @Valid @RequestBody TariffPriceChangeRequest request) {
         return tariffService.changePrice(code, request.monthlyFee());
     }
 
     @PostMapping("/{code}/publish")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public TariffResponse publish(@PathVariable String code) {
         return tariffService.publish(code);
     }
 
     @DeleteMapping("/{code}")
-    @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('MARKETING_MANAGER')")
     public ResponseEntity<Void> delete(@PathVariable String code) {
         tariffService.delete(code);
         return ResponseEntity.noContent().build();

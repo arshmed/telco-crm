@@ -101,6 +101,16 @@ Veya tek bir servisi Maven ile:
 mvn -pl order-service spring-boot:run
 ```
 
+> **`notification-service` için ek adım:** E-posta bildirimlerinin gönderilebilmesi için `GMAIL_APP_PASSWORD` ortam değişkeninin ayarlanmış olması gerekir. Servisi başlatmadan önce (PowerShell):
+> ```powershell
+> $env:GMAIL_APP_PASSWORD="<gmail-app-password>"
+> ```
+> Kalıcı olarak ayarlamak isterseniz:
+> ```powershell
+> [System.Environment]::SetEnvironmentVariable("GMAIL_APP_PASSWORD", "<gmail-app-password>", "User")
+> ```
+> Bu değişken tanımlı değilse `notification-service` ayağa kalkar ama e-posta gönderim adımlarında kimlik doğrulama hatası (`Authentication failed`) alınır.
+
 ### 4. Frontend'i başlatın
 ```bash
 cd telco-crm-fe

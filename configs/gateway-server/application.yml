@@ -19,15 +19,17 @@ spring:
 
   cloud:
     gateway:
-      default-filters:
-        - name: RequestRateLimiter
-          args:
-            redis-rate-limiter.replenishRate: 100
-            redis-rate-limiter.burstCapacity: 100
-            redis-rate-limiter.requestedTokens: 1
-            key-resolver: "#{@userKeyResolver}"
       server:
         webflux:
+          redis-rate-limiter:
+            include-headers: false
+          default-filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
           routes:
             - id: customer-service
               uri: lb://customer-service

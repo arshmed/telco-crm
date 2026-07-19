@@ -1,1 +1,7 @@
-spring.application.name=usage-service
+spring:
+  application:
+    name: usage-service
+  profiles:
+    active: dev
+  config:
+    import: "optional:configserver:http://localhost:8888"

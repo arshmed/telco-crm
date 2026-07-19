@@ -1,0 +1,85 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      services:
+        description: "Comma-separated services to deploy (empty = all)"
+        required: false
+        default: ""
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.31.0"
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Deploy services
+        run: |
+          SERVICES="${{ inputs.services }}"
+          ENV="${{ inputs.environment }}"
+
+          if [ -z "$SERVICES" ]; then
+            echo "Deploying all services to $ENV..."
+            kubectl apply -k "k8s/overlays/$ENV/" 2>/dev/null || \
+            find k8s -name "deployment.yaml" -o -name "service.yaml" | xargs -r kubectl apply -f -
+          else
+            IFS=',' read -ra SVC_ARRAY <<< "$SERVICES"
+            for svc in "${SVC_ARRAY[@]}"; do
+              svc=$(echo "$svc" | xargs)
+              echo "Deploying $svc to $ENV..."
+              if [ -d "k8s/$svc" ]; then
+                kubectl apply -f "k8s/$svc/"
+              else
+                echo "Warning: No k8s manifests found for $svc, skipping."
+              fi
+            done
+          fi
+
+      - name: Verify rollout
+        run: |
+          SERVICES="${{ inputs.services }}"
+          if [ -z "$SERVICES" ]; then
+            deployments=$(kubectl get deployments -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)
+          else
+            deployments=$(echo "$SERVICES" | tr ',' ' ')
+          fi
+
+          for dep in $deployments; do
+            echo "Checking rollout: $dep"
+            kubectl rollout status deployment/"$dep" --timeout=120s 2>/dev/null || \
+              echo "Warning: rollout check failed for $dep (may not exist in this namespace)"
+          done

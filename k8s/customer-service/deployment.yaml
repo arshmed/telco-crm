@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: customer-service-config
+  labels:
+    app: customer-service
+data:
+  SERVER_PORT: "9002"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_CONFIG_IMPORT: "configserver:http://config-server:8888"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5402/customer"
+  SPRING_DATA_REDIS_HOST: "host.docker.internal"
+  SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS: "host.docker.internal:9092"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs"
+  MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://host.docker.internal:9411/api/v2/spans"
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: "ecs"
+  LOGGING_STRUCTURED_FORMAT_FILE: "ecs"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: customer-service-secret
+  labels:
+    app: customer-service
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_PASSWORD: "test12345"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+  labels:
+    app: customer-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+    spec:
+      containers:
+        - name: customer-service
+          image: customer-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9002
+          envFrom:
+            - configMapRef:
+                name: customer-service-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: customer-service-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9002
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9002
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30

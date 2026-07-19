@@ -1,0 +1,43 @@
+spring:
+    security:
+        oauth2:
+            client:
+                registration:
+                    keycloak:
+                        client-id: bff-client
+                        client-secret: bff-client-secret
+                        authorization-grant-type: authorization_code
+                        scope: openid, profile, email
+                provider:
+                    keycloak:
+                        issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
+    cloud:
+        gateway:
+            server:
+                webmvc:
+                    routes:
+                        - id: gateway-server
+                          uri: lb://gateway-server
+                          predicates:
+                            - Path=/api/**
+                          filters:
+                            - TokenRelay
+
+server:
+  servlet:
+    session:
+      timeout: 8h
+eureka:
+    client:
+        service-url:
+            defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
+        fetch-registry: true
+        register-with-eureka: true
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+  file:
+    name: logs/bff-server.log

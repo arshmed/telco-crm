@@ -1,1 +1,7 @@
-spring.application.name=subscription-service
+spring:
+  application:
+    name: subscription-service
+  profiles:
+    active: dev
+  config:
+    import: "optional:configserver:http://localhost:8888"

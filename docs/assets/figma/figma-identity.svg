@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 580" width="1000" height="580" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="580" fill="#ffffff"/>
+
+  <rect x="760" y="28" width="200" height="30" rx="15" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5"/>
+  <text x="860" y="48" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1e293b">Kaynak: README</text>
+
+  <text x="40" y="42" font-size="20" font-weight="bold" fill="#0f172a">Identity Service — Detaylı Akış</text>
+  <text x="40" y="64" font-size="13" fill="#57697a">User/Role/Permission CRUD — Keycloak'ı DEĞİŞTİRMEZ · 9001</text>
+
+  <text x="40" y="102" font-size="13" font-weight="bold" fill="#334155">GİRDİ / BAĞIMLILIK</text>
+  <text x="760" y="102" font-size="13" font-weight="bold" fill="#334155">ÇIKTI / TÜKETİCİ</text>
+
+  <rect x="40" y="255" width="200" height="70" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <text x="140" y="285" text-anchor="middle" font-size="12" fill="#64748b">— yok —</text>
+  <text x="140" y="303" text-anchor="middle" font-size="11" fill="#64748b">hiçbir event dinlemez</text>
+
+  <!-- Center -->
+  <rect x="320" y="100" width="360" height="380" rx="14" fill="#e2e8f0" stroke="#475569" stroke-width="2.5"/>
+  <text x="500" y="150" text-anchor="middle" font-size="20" font-weight="bold" fill="#1e293b">Identity</text>
+  <line x1="350" y1="185" x2="650" y2="185" stroke="#475569" stroke-width="1" opacity="0.4"/>
+  <text x="350" y="210" font-size="13" font-weight="bold" fill="#1e293b">İç Akış</text>
+  <text x="350" y="236" font-size="12" fill="#1e293b">1. Kullanıcı önce kendi Postgres'ine yazılır</text>
+  <text x="350" y="260" font-size="12" fill="#1e293b">2. Keycloak'a hesap açma denenir (best-effort)</text>
+  <text x="350" y="284" font-size="12" fill="#1e293b">3. Başarısızsa sadece loglanır, retry yok</text>
+  <text x="350" y="308" font-size="12" fill="#1e293b">4. UserCreated/RoleAssigned outbox'a yazılır</text>
+
+  <rect x="400" y="345" width="200" height="34" rx="8" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="500" y="367" text-anchor="middle" font-size="11.5" font-weight="600" fill="#4c1d95">JWT · Keycloak</text>
+
+  <!-- Right: 2 boxes -->
+  <rect x="760" y="200" width="200" height="70" rx="10" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="860" y="240" text-anchor="middle" font-size="14" fill="#4c1d95">Keycloak</text>
+  <line x1="680" y1="235" x2="760" y2="235" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="720" y="223" text-anchor="middle" font-size="8.5" fill="#475569">Admin API (tek yönlü)</text>
+
+  <rect x="760" y="310" width="200" height="70" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <text x="860" y="337" text-anchor="middle" font-size="12" fill="#64748b">— tüketici</text>
+  <text x="860" y="355" text-anchor="middle" font-size="12" fill="#64748b">belirtilmemiş —</text>
+  <line x1="680" y1="345" x2="760" y2="345" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="720" y="333" text-anchor="middle" font-size="8.5" fill="#475569">UserCreated/RoleAssigned</text>
+
+  <text x="40" y="520" font-size="12" font-style="italic" fill="#334155">Not: "Bilinen Sınırlamalar" — Keycloak senkron hatası otomatik</text>
+  <text x="40" y="542" font-size="12" font-style="italic" fill="#334155">retry edilmiyor; Permission claim'i JWT'ye taşınmıyor.</text>
+</svg>

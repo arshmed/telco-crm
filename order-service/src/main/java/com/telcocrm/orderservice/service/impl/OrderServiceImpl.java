@@ -1,0 +1,230 @@
+package com.telcocrm.orderservice.service.impl;
+
+import com.telcocrm.orderservice.client.CustomerClient;
+import com.telcocrm.orderservice.client.ProductCatalogClient;
+import com.telcocrm.orderservice.client.dto.CustomerResponse;
+import com.telcocrm.orderservice.client.dto.ProductResponse;
+import com.telcocrm.orderservice.dto.request.CancelOrderRequest;
+import com.telcocrm.orderservice.dto.request.CreateOrderRequest;
+import com.telcocrm.orderservice.dto.request.OrderItemRequest;
+import com.telcocrm.orderservice.dto.response.OrderResponse;
+import com.telcocrm.orderservice.entity.IdempotencyKey;
+import com.telcocrm.orderservice.entity.Order;
+import com.telcocrm.orderservice.entity.OrderItem;
+import com.telcocrm.orderservice.entity.SagaState;
+import com.telcocrm.orderservice.entity.enums.OrderStatus;
+import com.telcocrm.orderservice.entity.enums.OrderItemType;
+import com.telcocrm.orderservice.entity.enums.SagaStep;
+import com.telcocrm.orderservice.event.publish.OrderCancelledEvent;
+import com.telcocrm.orderservice.event.publish.OrderCreatedEvent;
+import com.telcocrm.orderservice.exception.DuplicateRequestException;
+import com.telcocrm.orderservice.exception.OrderNotFoundException;
+import com.telcocrm.orderservice.mapper.OrderMapper;
+import com.telcocrm.orderservice.repository.IdempotencyKeyRepository;
+import com.telcocrm.orderservice.repository.OrderRepository;
+import com.telcocrm.orderservice.rules.OrderPricingRules;
+import com.telcocrm.orderservice.rules.OrderStateRules;
+import com.telcocrm.orderservice.security.CustomerAccessGuard;
+import com.telcocrm.orderservice.service.OrderAuditService;
+import com.telcocrm.orderservice.service.OrderService;
+import com.telcocrm.orderservice.service.OutboxService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+
+    private static final String ACTIVE_STATUS = "ACTIVE";
+
+    private final OrderRepository orderRepository;
+    private final IdempotencyKeyRepository idempotencyKeyRepository;
+    private final CustomerClient customerClient;
+    private final ProductCatalogClient productCatalogClient;
+    private final OrderMapper orderMapper;
+    private final OutboxService outboxService;
+    private final OrderAuditService orderAuditService;
+    private final OrderPricingRules orderPricingRules;
+    private final OrderStateRules orderStateRules;
+    private final CustomerAccessGuard customerAccessGuard;
+
+    @Override
+    @Transactional
+    public OrderResponse createOrder(CreateOrderRequest request, String idempotencyKey) {
+
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.isBlank();
+
+        if (hasIdempotencyKey) {
+            Optional<OrderResponse> replay = idempotencyKeyRepository.findByKey(idempotencyKey)
+                    .map(existing -> orderRepository.findByIdAndDeletedFalse(existing.getOrderId())
+                            .orElseThrow(() -> new OrderNotFoundException(existing.getOrderId())))
+                    .map(orderMapper::toResponse);
+            if (replay.isPresent()) {
+                return replay.get();
+            }
+        }
+
+        CustomerResponse customer;
+        UUID customerId;
+        if (request.customerId() != null) {
+            customerId = request.customerId();
+            customer = customerClient.getCustomerById(customerId);
+        } else if (request.customerNo() != null && !request.customerNo().isBlank()) {
+            customer = customerClient.getCustomerByNo(request.customerNo());
+            customerId = customer.id();
+        } else {
+            throw new IllegalArgumentException("Either customerId or customerNo must be provided");
+        }
+
+        if (!ACTIVE_STATUS.equals(customer.status())) {
+            throw new IllegalStateException("Customer " + customerId + " is not active");
+        }
+
+        List<OrderItem> items = new ArrayList<>();
+        String currency = null;
+
+        for (OrderItemRequest itemRequest : request.items()) {
+            ProductResponse product = productCatalogClient.getProductByCode(itemRequest.productType(), itemRequest.productCode());
+
+            if (product.status() != null && !ACTIVE_STATUS.equals(product.status())) {
+                throw new IllegalStateException("Product " + itemRequest.productCode() + " is not active");
+            }
+
+            if (currency == null) {
+                currency = product.currency();
+            } else if (!currency.equals(product.currency())) {
+                throw new IllegalStateException("Order items have mixed currencies");
+            }
+
+            items.add(orderPricingRules.buildOrderItem(itemRequest, product));
+        }
+
+        // Her sipariş subscription-service tarafında yeni bir abonelik açıyor (bkz. OrderCreatedEvent.tariffCode)
+        // ve Subscription.tariffCode NOT NULL — TARIFF içermeyen bir sipariş bu alanı null yayınlar ve
+        // subscription-service'te sürekli retry eden, hiç ilerlemeyen bir saga'ya yol açar.
+        boolean hasTariffItem = items.stream().anyMatch(item -> item.getProductType() == OrderItemType.TARIFF);
+        if (!hasTariffItem) {
+            throw new IllegalArgumentException("Order must include at least one TARIFF item");
+        }
+
+        BigDecimal totalAmount = orderPricingRules.calculateTotalAmount(items);
+
+        Order order = Order.builder()
+                .customerId(customerId)
+                .customerNo(customer.customerNo())
+                .status(OrderStatus.PENDING_PAYMENT)
+                .totalAmount(totalAmount)
+                .currency(currency)
+                .build();
+
+        items.forEach(order::addItem);
+
+        SagaState sagaState = SagaState.builder()
+                .order(order)
+                .currentStep(SagaStep.AWAITING_PAYMENT)
+                .build();
+
+        order.setSagaState(sagaState);
+
+        orderRepository.save(order);
+
+        if (hasIdempotencyKey) {
+            try {
+                idempotencyKeyRepository.saveAndFlush(IdempotencyKey.builder()
+                        .key(idempotencyKey)
+                        .orderId(order.getId())
+                        .createdAt(Instant.now())
+                        .build());
+            } catch (DataIntegrityViolationException e) {
+                throw new DuplicateRequestException(idempotencyKey);
+            }
+        }
+
+        orderAuditService.log(order, "Order created");
+
+        outboxService.saveEvent(
+                "ORDER",
+                order.getId().toString(),
+                "order-created-topic",
+                OrderCreatedEvent.of(
+                        order.getId(),
+                        order.getCustomerId(),
+                        order.getTotalAmount(),
+                        order.getCurrency(),
+                        customer.email(),
+                        customer.firstName(),
+                        customer.lastName(),
+                        items.stream()
+                                .filter(i -> i.getProductType() == OrderItemType.TARIFF)
+                                .map(OrderItem::getProductCode)
+                                .findFirst()
+                                .orElse(null)));
+        return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(UUID orderId) {
+        Order order = orderRepository.findByIdAndDeletedFalse(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        customerAccessGuard.assertOwnResource(order.getCustomerId(), () -> new OrderNotFoundException(orderId));
+
+        return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listOrders(UUID customerId, Pageable pageable) {
+        UUID effectiveCustomerId = customerAccessGuard.effectiveCustomerFilter(customerId);
+        Page<Order> orders = (effectiveCustomerId != null)
+                ? orderRepository.findByCustomerIdAndDeletedFalse(effectiveCustomerId, pageable)
+                : orderRepository.findByDeletedFalse(pageable);
+
+        return orders.map(orderMapper::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelOrder(UUID orderId, CancelOrderRequest request) {
+
+        Order order = orderRepository.findByIdAndDeletedFalse(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        customerAccessGuard.assertOwnResource(order.getCustomerId(), () -> new OrderNotFoundException(orderId));
+
+        orderStateRules.cancel(order, request.reason());
+
+        orderRepository.save(order);
+
+        orderAuditService.log(order, order.getCancellationReason());
+
+        CustomerResponse customer = customerClient.getCustomerById(order.getCustomerId());
+
+        outboxService.saveEvent(
+                "ORDER",
+                order.getId().toString(),
+                "order-cancelled-topic",
+                OrderCancelledEvent.of(
+                        order.getId(),
+                        order.getCustomerId(),
+                        order.getCancellationReason(),
+                        customer.email(),
+                        customer.firstName(),
+                        customer.lastName()));
+
+        return orderMapper.toResponse(order);
+    }
+}

@@ -1,0 +1,76 @@
+package com.telcocrm.ticketservice.controller;
+
+import com.telcocrm.ticketservice.dto.request.AddCommentRequest;
+import com.telcocrm.ticketservice.dto.request.AssignTicketRequest;
+import com.telcocrm.ticketservice.dto.request.CreateTicketRequest;
+import com.telcocrm.ticketservice.dto.request.ResolveTicketRequest;
+import com.telcocrm.ticketservice.dto.response.TicketCommentResponse;
+import com.telcocrm.ticketservice.dto.response.TicketResponse;
+import com.telcocrm.ticketservice.dto.response.TicketSummaryResponse;
+import com.telcocrm.ticketservice.entity.enums.TicketStatus;
+import com.telcocrm.ticketservice.service.TicketService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/tickets")
+@RequiredArgsConstructor
+public class TicketController {
+
+    private final TicketService ticketService;
+
+    @PostMapping
+    public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody CreateTicketRequest request) {
+        TicketResponse response = ticketService.createTicket(request);
+        return ResponseEntity.created(URI.create("/api/v1/tickets/" + response.id())).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<TicketSummaryResponse>> listTickets(
+            @RequestParam(required = false) TicketStatus status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(ticketService.listTickets(status, pageable));
+    }
+
+    @GetMapping("/{ticketId}")
+    public ResponseEntity<TicketResponse> getTicketById(@PathVariable UUID ticketId) {
+        return ResponseEntity.ok(ticketService.getTicketById(ticketId));
+    }
+
+    @PostMapping("/{ticketId}/comments")
+    public ResponseEntity<TicketCommentResponse> addComment(
+            @PathVariable UUID ticketId,
+            @Valid @RequestBody AddCommentRequest request,
+            Authentication authentication) {
+        TicketCommentResponse response = ticketService.addComment(ticketId, request, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/{ticketId}/assign")
+    @PreAuthorize("hasAuthority('CALL_CENTER_AGENT')")
+    public ResponseEntity<TicketResponse> assignTicket(
+            @PathVariable UUID ticketId,
+            @Valid @RequestBody AssignTicketRequest request) {
+        return ResponseEntity.ok(ticketService.assignTicket(ticketId, request));
+    }
+
+    @PostMapping("/{ticketId}/resolve")
+    @PreAuthorize("hasAuthority('CALL_CENTER_AGENT')")
+    public ResponseEntity<TicketResponse> resolveTicket(
+            @PathVariable UUID ticketId,
+            @Valid @RequestBody ResolveTicketRequest request) {
+        return ResponseEntity.ok(ticketService.resolveTicket(ticketId, request));
+    }
+}

@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-catalog-service-config
+  labels:
+    app: product-catalog-service
+data:
+  SERVER_PORT: "9003"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_CONFIG_IMPORT: "configserver:http://config-server:8888"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5403/catalog"
+  SPRING_DATA_REDIS_HOST: "host.docker.internal"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs"
+  MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://host.docker.internal:9411/api/v2/spans"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: "ecs"
+  LOGGING_STRUCTURED_FORMAT_FILE: "ecs"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: product-catalog-service-secret
+  labels:
+    app: product-catalog-service
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_PASSWORD: "test12345"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-catalog-service
+  labels:
+    app: product-catalog-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-catalog-service
+  template:
+    metadata:
+      labels:
+        app: product-catalog-service
+    spec:
+      containers:
+        - name: product-catalog-service
+          image: product-catalog-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9003
+          envFrom:
+            - configMapRef:
+                name: product-catalog-service-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-catalog-service-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9003
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30

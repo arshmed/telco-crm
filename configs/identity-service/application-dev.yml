@@ -1,0 +1,78 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
+          jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+      client:
+        registration:
+          keycloak-admin:
+            client-id: identity-service
+            client-secret: identity-service-secret
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak-admin:
+            token-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/token
+  datasource:
+    url: jdbc:postgresql://localhost:5401/identity
+    username: postgres
+    password: test12345
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+
+keycloak:
+  admin:
+    base-url: http://localhost:8085/admin/realms/telcocrm-gygy5
+
+server:
+  port: 9001
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      keycloakAdminCircuitBreaker:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    hostname: localhost
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+logging:
+  structured:
+    format:
+      console: ecs
+      file: ecs
+  file:
+    name: logs/identity-service.log

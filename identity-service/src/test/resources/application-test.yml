@@ -1,0 +1,34 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085/realms/telcocrm-gygy5
+          jwk-set-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs
+      client:
+        registration:
+          keycloak-admin:
+            client-id: identity-service
+            client-secret: identity-service-secret
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak-admin:
+            token-uri: http://localhost:8085/realms/telcocrm-gygy5/protocol/openid-connect/token
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+
+keycloak:
+  admin:
+    base-url: http://localhost:8085/admin/realms/telcocrm-gygy5

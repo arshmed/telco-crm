@@ -54,7 +54,7 @@ services:
 
       # --- Listener tanımları (INTERNAL container içi, EXTERNAL host, CONTROLLER) ---
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:19092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://host.docker.internal:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -328,9 +328,7 @@ services:
     command: -config.file=/etc/promtail/config.yaml
     volumes:
       - ./promtail/promtail-config.yaml:/etc/promtail/config.yaml
-      - ../order-service/logs:/var/log/telco-crm/order-service:ro
-      - ../payment-service/logs:/var/log/telco-crm/payment-service:ro
-      - ../identity-service/logs:/var/log/telco-crm/identity-service:ro
+      - ../logs:/var/log/telco-crm/logs:ro
     depends_on:
       - loki
     networks:

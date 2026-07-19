@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { billingApi, InvoiceResponse, BillCycleResponse } from '../api/billingApi';
+import { billingApi, InvoiceResponse } from '../api/billingApi';
 import { formatDate } from '../utils/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../constants/roles';
@@ -28,7 +28,6 @@ export default function Billing() {
   const { hasRole } = useAuth();
   const canTriggerBillRun = hasRole(ROLES.BILLING_OPERATOR);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
-  const [cycles, setCycles] = useState<BillCycleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(() => new Date().toISOString().split('T')[0]);
@@ -64,7 +63,6 @@ export default function Billing() {
 
   const dueCount = invoices.filter(i => i.status === 'OVERDUE').length;
   const paidCount = invoices.filter(i => i.status === 'PAID').length;
-  const issuedCount = invoices.filter(i => i.status === 'ISSUED').length;
   const totalRevenue = invoices.filter(i => i.status === 'PAID').reduce((s, i) => s + i.grandTotal, 0);
 
   return (
@@ -179,6 +177,7 @@ export default function Billing() {
                   <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Vade</th>
                   <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-right">Tutar</th>
                   <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap">Durum</th>
+                  <th className="px-4 font-label-sm text-on-surface-variant whitespace-nowrap text-center">İşlem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
@@ -195,6 +194,18 @@ export default function Billing() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${STATUS_CLASSES[inv.status] || ''}`}>
                         {STATUS_LABELS[inv.status] || inv.status}
                       </span>
+                    </td>
+                    <td className="px-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          billingApi.downloadInvoicePdf(inv.id, inv.invoiceNumber);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-primary hover:bg-primary-container transition-colors"
+                        title="PDF İndir"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span>
+                      </button>
                     </td>
                   </tr>
                 ))}

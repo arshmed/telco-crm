@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: usage-service-config
+  labels:
+    app: usage-service
+data:
+  SERVER_PORT: "9006"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_CONFIG_IMPORT: "configserver:http://config-server:8888"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://host.docker.internal:5406/usage"
+  SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS: "host.docker.internal:9092"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/certs"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_PROVIDER_KEYCLOAK_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_CLIENTID: "bff-client"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_CLIENTSECRET: "bff-client-secret"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_AUTHORIZATIONGRANTTYPE: "client_credentials"
+  SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_BFF_CLIENT_SCOPE: "openid"
+  SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKEN_URI: "http://host.docker.internal:8085/realms/telcocrm-gygy5/protocol/openid-connect/token"
+  MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://host.docker.internal:9411/api/v2/spans"
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: "ecs"
+  LOGGING_STRUCTURED_FORMAT_FILE: "ecs"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: usage-service-secret
+  labels:
+    app: usage-service
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_PASSWORD: "test12345"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usage-service
+  labels:
+    app: usage-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: usage-service
+  template:
+    metadata:
+      labels:
+        app: usage-service
+    spec:
+      containers:
+        - name: usage-service
+          image: usage-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9006
+          envFrom:
+            - configMapRef:
+                name: usage-service-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: usage-service-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 9006
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 9006
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 9006
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30

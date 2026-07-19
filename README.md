@@ -4,6 +4,9 @@
 
 Bir mobil operatör için uçtan uca CRM platformu: müşteri kaydı/KYC, tarife/ek paket kataloğu, sipariş → ödeme → abonelik aktivasyonu **saga** akışı, kullanım (CDR) takibi, faturalama, destek talepleri ve bildirimleri kapsar. Servisler arasındaki tüm asenkron iletişim **Transactional Outbox + Debezium CDC** ile Kafka'ya taşınır; senkron çağrılar OpenFeign + Resilience4j Circuit Breaker ile korunur.
 
+figma: https://www.figma.com/design/33NXQeWyBD4xHrx2A02tWt/Untitled?node-id=0-1&p=f&t=7DeV5sRu7XPhdqx5-0
+
+
 ---
 
 ## Mimari

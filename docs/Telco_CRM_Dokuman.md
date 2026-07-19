@@ -983,9 +983,37 @@ Veritabanı Port Haritası:
 
 ## 8.1 Sistem Akış Özeti (Figma Aktarımı)
 
+Figma Linki: https://www.figma.com/design/33NXQeWyBD4xHrx2A02tWt/Untitled?node-id=0-1&p=f&t=7DeV5sRu7XPhdqx5-0
+
 ![Sistem Akış Özeti](assets/figma/figma-akis-ozeti.svg)
 
 *Servis haritası, uçtan uca müşteri akışı (tarife seçimi → sipariş → aktivasyon → kullanım → faturalama) ve durum şablonu.*
+
+## 8.2 Rol Bazlı Ekran Görüntüleri
+
+Aynı frontend, giriş yapan kullanıcının rolüne göre farklı menü ve yetkiler gösterir (bkz. §2.2 Hedef Kitle Kullanıcıları).
+
+### Çağrı Merkezi Temsilcisi (CALL_CENTER_AGENT)
+
+Müşteri kaydı, sipariş oluşturma ve destek talebi açma — çağrı merkezi temsilcisinin en sık kullandığı üç ekran.
+
+![Yeni Müşteri Kaydı](assets/frontend/callcenter-yeni-musteri.jpeg)
+
+![Sipariş Oluşturma — Tarife Seçimi](assets/frontend/callcenter-siparis-tarife-secimi.jpeg)
+
+![Yeni Ticket Açma](assets/frontend/callcenter-yeni-ticket.jpeg)
+
+### Sistem Yöneticisi (SYSTEM_ADMIN)
+
+Kullanıcı ve rol yönetimi ekranı — kullanıcı arama, rol atama, erişim günlükleri.
+
+![Kullanıcı ve Rol Yönetimi](assets/frontend/sysadmin-kullanici-rol-yonetimi.jpeg)
+
+### Müşteri (CUSTOMER — Self-Servis Portal)
+
+Müşterinin kendi verilerini gördüğü genel bakış paneli: aktif abonelik, fatura ve ticket durumu.
+
+![Müşteri Genel Bakış](assets/frontend/customer-genel-bakis.jpeg)
 
 ## 8.5 Kullanıcı Akış Şemaları
 

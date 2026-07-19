@@ -79,7 +79,7 @@ class PaymentServiceImplTest {
         when(paymentRepository.findAll(pageable)).thenReturn(page);
         when(paymentMapper.toResponse(payment)).thenReturn(response);
 
-        Page<PaymentResponse> result = paymentService.getAllPayments(pageable);
+        Page<PaymentResponse> result = paymentService.getAllPayments(null, pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).containsExactly(response);
@@ -92,7 +92,7 @@ class PaymentServiceImplTest {
 
         when(paymentRepository.findAll(pageable)).thenReturn(emptyPage);
 
-        Page<PaymentResponse> result = paymentService.getAllPayments(pageable);
+        Page<PaymentResponse> result = paymentService.getAllPayments(null, pageable);
 
         assertThat(result.getContent()).isEmpty();
         verify(paymentMapper, never()).toResponse(any(Payment.class));

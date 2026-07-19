@@ -76,6 +76,11 @@ spring:
               predicates:
                 - Path=/api/v1/tickets/**
 
+            - id: identity-service
+              uri: lb://identity-service
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/roles/**,/api/v1/permissions/**,/api/v1/audit-logs/**
+
 eureka:
   client:
     service-url:

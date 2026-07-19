@@ -47,7 +47,10 @@ public class SecurityConfig {
             .exceptionHandling(exceptions -> exceptions
                     .defaultAuthenticationEntryPointFor(
                             new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                            PathPatternRequestMatcher.pathPattern("/api/**")))
+                            PathPatternRequestMatcher.pathPattern("/api/**"))
+                    .defaultAuthenticationEntryPointFor(
+                            new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                            PathPatternRequestMatcher.pathPattern("/bff/**")))
             .oauth2Login(oauth2 -> oauth2
                     .defaultSuccessUrl("http://localhost:5173", true))
             .logout(logout -> logout.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)))
@@ -65,6 +68,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
+        configuration.setExposedHeaders(List.of("Location"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -89,7 +93,7 @@ public class SecurityConfig {
     private OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler(
             ClientRegistrationRepository clientRegistrationRepository) {
         var handler = new OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository);
-        handler.setPostLogoutRedirectUri("{baseUrl}");
+        handler.setPostLogoutRedirectUri("http://localhost:5173/login");
         handler.setRedirectStrategy((request, response, url) -> {
             response.setStatus(HttpServletResponse.SC_OK);
             response.setHeader("Location", url);

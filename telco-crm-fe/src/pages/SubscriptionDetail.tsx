@@ -13,8 +13,14 @@ import {
   SubscriptionAddonResponse,
 } from "../api/subscriptionApi";
 import { getTariffs, getAddons, TariffResponse, AddonResponse } from "../api/catalogApi";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { ROLES } from "../constants/roles";
 
 export default function SubscriptionDetail() {
+  const { hasAnyRole } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const canManageLifecycle = hasAnyRole([ROLES.CALL_CENTER_AGENT, ROLES.FIELD_DEALER]);
   const { id } = useParams<{ id: string }>();
   const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
@@ -81,8 +87,9 @@ export default function SubscriptionDetail() {
       setSubscription(updated);
       setShowTariffPicker(false);
       setSelectedTariffCode("");
+      showSuccess("Tarife başarıyla değiştirildi.");
     } catch {
-      alert("Tarife değiştirilirken bir hata oluştu.");
+      showError("Tarife değiştirilirken bir hata oluştu.");
     } finally {
       setActionLoading(false);
     }
@@ -97,20 +104,22 @@ export default function SubscriptionDetail() {
       setSubscriptionAddons(updated);
       setShowAddonPicker(false);
       setSelectedAddonCode("");
+      showSuccess("Ek paket başarıyla eklendi.");
     } catch {
-      alert("Ek paket eklenirken bir hata oluştu.");
+      showError("Ek paket eklenirken bir hata oluştu.");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleAction = async (action: () => Promise<SubscriptionResponse>) => {
+  const handleAction = async (action: () => Promise<SubscriptionResponse>, successMessage: string) => {
     setActionLoading(true);
     try {
       const updated = await action();
       setSubscription(updated);
+      showSuccess(successMessage);
     } catch {
-      alert("İşlem gerçekleştirilirken bir hata oluştu.");
+      showError("İşlem gerçekleştirilirken bir hata oluştu.");
     } finally {
       setActionLoading(false);
     }
@@ -169,14 +178,16 @@ export default function SubscriptionDetail() {
               </span>
             )}
           </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors">
-              Düzenle
-            </button>
-            <button className="p-2 bg-surface border border-outline-variant text-on-surface rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center">
-              <span className="material-symbols-outlined">more_vert</span>
-            </button>
-          </div>
+          {canManageLifecycle && (
+            <div className="flex gap-2">
+              <button className="px-4 py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors">
+                Düzenle
+              </button>
+              <button className="p-2 bg-surface border border-outline-variant text-on-surface rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center">
+                <span className="material-symbols-outlined">more_vert</span>
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex gap-6 mt-2 text-on-surface-variant font-body-sm border-t border-outline-variant pt-3">
           <div className="flex flex-col">
@@ -405,35 +416,37 @@ export default function SubscriptionDetail() {
               <p className="font-body-sm text-on-surface-variant">
                 Bu abonelik şu anda <strong>{getStatusLabel(subscription.status)}</strong> durumdadır. İşlemler faturalandırmayı etkileyebilir.
               </p>
-              <div className="flex flex-col gap-2 mt-2">
-                {subscription.status === 'ACTIVE' && (
-                  <button
-                    onClick={() => handleAction(() => suspendSubscription(subscription.id))}
-                    disabled={actionLoading}
-                    className="w-full py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">pause_circle</span> Askıya Al
-                  </button>
-                )}
-                {subscription.status === 'SUSPENDED' && (
-                  <button
-                    onClick={() => handleAction(() => reactivateSubscription(subscription.id))}
-                    disabled={actionLoading}
-                    className="w-full py-2 bg-success text-on-primary font-label-md rounded-lg hover:bg-success/90 transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">play_circle</span> Yeniden Aktifleştir
-                  </button>
-                )}
-                {(subscription.status === 'ACTIVE' || subscription.status === 'SUSPENDED') && (
-                  <button
-                    onClick={() => handleAction(() => terminateSubscription(subscription.id))}
-                    disabled={actionLoading}
-                    className="w-full py-2 bg-danger-bg border border-danger/20 text-danger font-label-md rounded-lg hover:bg-danger hover:text-surface transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">cancel</span> Sonlandır
-                  </button>
-                )}
-              </div>
+              {canManageLifecycle && (
+                <div className="flex flex-col gap-2 mt-2">
+                  {subscription.status === 'ACTIVE' && (
+                    <button
+                      onClick={() => handleAction(() => suspendSubscription(subscription.id), "Abonelik başarıyla askıya alındı.")}
+                      disabled={actionLoading}
+                      className="w-full py-2 bg-surface border border-outline-variant text-on-surface font-label-md rounded-lg hover:bg-surface-container-low transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">pause_circle</span> Askıya Al
+                    </button>
+                  )}
+                  {subscription.status === 'SUSPENDED' && (
+                    <button
+                      onClick={() => handleAction(() => reactivateSubscription(subscription.id), "Abonelik başarıyla yeniden aktifleştirildi.")}
+                      disabled={actionLoading}
+                      className="w-full py-2 bg-success text-on-primary font-label-md rounded-lg hover:bg-success/90 transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">play_circle</span> Yeniden Aktifleştir
+                    </button>
+                  )}
+                  {(subscription.status === 'ACTIVE' || subscription.status === 'SUSPENDED') && (
+                    <button
+                      onClick={() => handleAction(() => terminateSubscription(subscription.id), "Abonelik başarıyla sonlandırıldı.")}
+                      disabled={actionLoading}
+                      className="w-full py-2 bg-danger-bg border border-danger/20 text-danger font-label-md rounded-lg hover:bg-danger hover:text-surface transition-colors flex justify-center items-center gap-2 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">cancel</span> Sonlandır
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

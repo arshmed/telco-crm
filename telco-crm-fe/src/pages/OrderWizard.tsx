@@ -6,8 +6,10 @@ import { createOrder, CreateOrderRequest } from "../api/orderApi";
 import { createPayment } from "../api/paymentApi";
 import { getCustomerByNo, CustomerResponse } from "../api/customerApi";
 import { isValidLuhn, isExpiryValid } from "../utils/cardValidation";
+import { useToast } from "../context/ToastContext";
 
 export default function OrderWizard() {
+  const { showError } = useToast();
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
 
@@ -178,7 +180,7 @@ export default function OrderWizard() {
       }
     } catch (error) {
       console.error("Sipariş oluşturulamadı:", error);
-      alert("Sipariş oluşturulurken bir hata oluştu.");
+      showError("Sipariş oluşturulurken bir hata oluştu.");
     } finally {
       setSubmitting(false);
     }

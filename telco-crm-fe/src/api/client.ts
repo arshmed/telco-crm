@@ -21,12 +21,11 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
-
-// 403 bilerek disarida: oturum gecerli, sadece yetki yok — login'e atmak sonsuz dongu olur.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    const isMeCall = error.config?.url === '/bff/me';
+    if (error.response?.status === 401 && window.location.pathname !== '/login' && !isMeCall) {
       window.location.replace('/login');
     }
     return Promise.reject(error);

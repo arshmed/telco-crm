@@ -5,8 +5,14 @@ import {
   getAddons, createAddon, updateAddon, deleteAddon,
   TariffResponse, AddonResponse
 } from "../api/catalogApi";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { ROLES } from "../constants/roles";
 
 export default function CatalogManager() {
+  const { hasRole } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const canManageCatalog = hasRole(ROLES.MARKETING_MANAGER);
   const [activeTab, setActiveTab] = useState<"tariffs" | "addons">("tariffs");
   const [tariffs, setTariffs] = useState<TariffResponse[]>([]);
   const [addons, setAddons] = useState<AddonResponse[]>([]);
@@ -43,7 +49,7 @@ export default function CatalogManager() {
   useEffect(() => { fetchData(); }, []);
 
   const handlePublish = async (code: string) => {
-    try { await publishTariff(code); fetchData(); } catch { alert("Yayınlama başarısız."); }
+    try { await publishTariff(code); fetchData(); showSuccess("Tarife başarıyla yayınlandı."); } catch { showError("Yayınlama başarısız."); }
   };
 
   const handleDelete = async (code: string, type: 'tariff' | 'addon') => {
@@ -52,29 +58,34 @@ export default function CatalogManager() {
       if (type === 'tariff') await deleteTariff(code);
       else await deleteAddon(code);
       fetchData();
-    } catch { alert("Silme başarısız."); }
+      showSuccess(type === 'tariff' ? "Tarife başarıyla silindi." : "Addon başarıyla silindi.");
+    } catch { showError("Silme başarısız."); }
   };
 
   const handleSaveTariff = async () => {
     try {
+      const wasEditing = !!editingItem;
       if (editingItem) {
         await updateTariff(editingItem.code, tariffForm);
       } else {
         await createTariff(tariffForm);
       }
       setShowForm(false); setEditingItem(null); fetchData();
-    } catch { alert("Kaydetme başarısız."); }
+      showSuccess(wasEditing ? "Tarife başarıyla güncellendi." : "Tarife başarıyla oluşturuldu.");
+    } catch { showError("Kaydetme başarısız."); }
   };
 
   const handleSaveAddon = async () => {
     try {
+      const wasEditing = !!editingItem;
       if (editingItem) {
         await updateAddon(editingItem.code, addonForm);
       } else {
         await createAddon(addonForm);
       }
       setShowForm(false); setEditingItem(null); fetchData();
-    } catch { alert("Kaydetme başarısız."); }
+      showSuccess(wasEditing ? "Addon başarıyla güncellendi." : "Addon başarıyla oluşturuldu.");
+    } catch { showError("Kaydetme başarısız."); }
   };
 
   const startEdit = (item: any, type: 'tariff' | 'addon') => {
@@ -109,11 +120,13 @@ export default function CatalogManager() {
     <div className="max-w-[1440px] mx-auto flex flex-col gap-stack-lg">
       <div className="flex items-center justify-between">
         <h2 className="font-h1 text-on-background">Ürün Kataloğu</h2>
-        <button onClick={() => { setShowForm(true); setEditingItem(null); setFormType(activeTab === 'tariffs' ? 'tariff' : 'addon'); }}
-          className="bg-primary text-on-primary font-label-md px-gutter py-2 rounded flex items-center gap-2 hover:bg-primary/90 transition-colors">
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          {activeTab === 'tariffs' ? 'Yeni Tarife' : 'Yeni Addon'}
-        </button>
+        {canManageCatalog && (
+          <button onClick={() => { setShowForm(true); setEditingItem(null); setFormType(activeTab === 'tariffs' ? 'tariff' : 'addon'); }}
+            className="bg-primary text-on-primary font-label-md px-gutter py-2 rounded flex items-center gap-2 hover:bg-primary/90 transition-colors">
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            {activeTab === 'tariffs' ? 'Yeni Tarife' : 'Yeni Addon'}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -166,17 +179,19 @@ export default function CatalogManager() {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-label-sm ${getStatusColor(t.status)}`}>{t.status}</span>
                   </td>
                   <td className="px-gutter text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {t.status === 'DRAFT' && (
-                        <button onClick={() => handlePublish(t.code)} className="text-success hover:bg-success-bg px-2 py-1 rounded font-label-sm transition-colors">Yayınla</button>
-                      )}
-                      <button onClick={() => startEdit(t, 'tariff')} className="text-secondary hover:text-primary px-2 py-1 rounded transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                      </button>
-                      <button onClick={() => handleDelete(t.code, 'tariff')} className="text-secondary hover:text-danger px-2 py-1 rounded transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
-                      </button>
-                    </div>
+                    {canManageCatalog && (
+                      <div className="flex items-center justify-end gap-1">
+                        {t.status === 'DRAFT' && (
+                          <button onClick={() => handlePublish(t.code)} className="text-success hover:bg-success-bg px-2 py-1 rounded font-label-sm transition-colors">Yayınla</button>
+                        )}
+                        <button onClick={() => startEdit(t, 'tariff')} className="text-secondary hover:text-primary px-2 py-1 rounded transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(t.code, 'tariff')} className="text-secondary hover:text-danger px-2 py-1 rounded transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -208,14 +223,16 @@ export default function CatalogManager() {
                   <td className="px-gutter font-mono-id text-right">₺{a.price}</td>
                   <td className="px-gutter font-mono-id text-right">{a.validityDays} gün</td>
                   <td className="px-gutter text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => startEdit(a, 'addon')} className="text-secondary hover:text-primary px-2 py-1 rounded transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                      </button>
-                      <button onClick={() => handleDelete(a.code, 'addon')} className="text-secondary hover:text-danger px-2 py-1 rounded transition-colors">
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
-                      </button>
-                    </div>
+                    {canManageCatalog && (
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => startEdit(a, 'addon')} className="text-secondary hover:text-primary px-2 py-1 rounded transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                        <button onClick={() => handleDelete(a.code, 'addon')} className="text-secondary hover:text-danger px-2 py-1 rounded transition-colors">
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

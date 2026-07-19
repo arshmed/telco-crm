@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getCustomers, createCustomer, CustomerResponse, CustomerRequest, Page } from "../api/customerApi";
 import { formatDateTime } from "../utils/dateUtils";
+import { useToast } from "../context/ToastContext";
+import clsx from "clsx";
 
 const CITIES = [
   "Adana", "Ankara", "Antalya", "Bursa", "Denizli", "Diyarbakır",
@@ -90,6 +92,7 @@ function validateForm(customer: CustomerRequest): FormErrors {
 }
 
 export default function Customers() {
+  const { showError, showSuccess } = useToast();
   const [data, setData] = useState<Page<CustomerResponse> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,9 +211,10 @@ export default function Customers() {
       resetForm();
       const result = await getCustomers(0);
       setData(result);
+      showSuccess("Müşteri başarıyla oluşturuldu.");
     } catch (err: any) {
       const msg = err.response?.data?.message || err.response?.data?.detail || "Müşteri oluşturulurken bir hata oluştu.";
-      alert(msg);
+      showError(msg);
     } finally {
       setCreating(false);
     }

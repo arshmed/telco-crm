@@ -8,8 +8,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProviderBuilder;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -39,14 +44,6 @@ public class SecurityConfig {
                 auth -> auth.requestMatchers(HttpMethod.OPTIONS).permitAll() // Preflight CORS isteklerine izin ver
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
-            // /api/** isteklerinde oturum geçersizse Keycloak'a redirect ATMA, düz 401 dön.
-            // SPA ayrı origin'de (Vite, :5173) çalıştığı için bff'in kendisi hiçbir zaman
-            // gerçek bir sayfa navigasyonu görmüyor — buraya gelen her şey axios/fetch.
-            // Varsayılan oauth2Login entry point'i XHR'a da redirect atmaya çalışınca
-            // tarayıcı bunu cross-origin bir istek zinciri sayıp Keycloak'ın /auth
-            // endpoint'ine CORS preflight (OPTIONS) atıyor, Keycloak 405 döndürüyor,
-            // istek CORS hatasıyla patlıyor ve frontend'in "401 ise login'e yönlendir"
-            // mantığı hiç tetiklenmiyor (error.response undefined kalıyor).
             .exceptionHandling(exceptions -> exceptions
                     .defaultAuthenticationEntryPointFor(
                             new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
@@ -60,10 +57,6 @@ public class SecurityConfig {
             .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class);
         return http.build();
     }
-
-    // CORS'u Spring Security'nin kendi filter zincirine bağlıyoruz ki 401/redirect gibi
-    // Security tarafından erken üretilen response'larda da (ör. oturum geçersizken) doğru
-    // Access-Control-* header'ları eklensin — sadece WebMvcConfigurer bunu garanti etmiyor.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -76,6 +69,21 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+    @Bean
+    public OAuth2AuthorizedClientManager authorizedClientManager(
+            ClientRegistrationRepository clientRegistrationRepository,
+            OAuth2AuthorizedClientRepository authorizedClientRepository) {
+        OAuth2AuthorizedClientProvider authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
+                .authorizationCode()
+                .refreshToken()
+                .build();
+
+        DefaultOAuth2AuthorizedClientManager delegate =
+                new DefaultOAuth2AuthorizedClientManager(clientRegistrationRepository, authorizedClientRepository);
+        delegate.setAuthorizedClientProvider(authorizedClientProvider);
+
+        return new SessionSynchronizedAuthorizedClientManager(delegate);
     }
 
     private OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler(

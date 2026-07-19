@@ -24,6 +24,8 @@ flowchart LR
 
 Her servisin kendi Postgres veritabanı vardır (bkz. Servis Yapısı tablosu); servis-servis event akışlarının detayı ilgili servisin dokümanındaki "Kafka Event'leri" bölümündedir.
 
+![Sistem Akış Özeti](docs/assets/figma/figma-akis-ozeti.svg)
+
 ---
 
 ## Teknoloji Yığını

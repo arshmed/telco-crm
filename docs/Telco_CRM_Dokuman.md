@@ -1598,6 +1598,12 @@ Servis bazlı epic'ler ve ilerleme durumları (Infrastructure & Platform, Securi
 
 ![Jira Epic Zaman Çizelgesi](assets/jira/jira-timeline-epics.png)
 
+## 14.3 Confluence Dokümantasyonu
+
+Servis bazlı teknik dokümanlar Confluence'ta tutulur (Product-Catalog-Service, Customer Service, Order Service vb.); bu dokümanların bir kısmı `docs/confluence/` altında da mevcuttur.
+
+![Confluence — Product Catalog Service Dokümanı](assets/confluence/confluence-product-catalog-service.png)
+
 ---
 
 # Ekler

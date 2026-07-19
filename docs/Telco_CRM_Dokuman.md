@@ -1,3 +1,12 @@
+| **Proje Ekibi** | Fatmatüzzehra Öztürk · Orhan Gölcür · Muhammed Arslan |
+|---|---|
+| **GitHub** | https://github.com/arshmed/telco-crm |
+| **Figma** | https://www.figma.com/design/33NXQeWyBD4xHrx2A02tWt/Untitled?node-id=0-1&p=f&t=7DeV5sRu7XPhdqx5-0 |
+| **Confluence** | https://telco-crm.atlassian.net/wiki/spaces/~7120205e3a0fa3365947cfb11017d19c4b01b2/pages/ |
+| **Jira** | https://proudsec-ai-team.atlassian.net/jira/software/projects/AI/boards/1?filter=&groupBy=none |
+
+---
+
 # TelcoX CRM Platformu - Kapsamlı Teknik Doküman
 
 

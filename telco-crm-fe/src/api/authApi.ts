@@ -1,7 +1,19 @@
+import { apiClient } from './client';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9011';
+
+export interface CurrentUser {
+  username: string;
+  roles: string[];
+}
 
 export const redirectToKeycloakLogin = () => {
   window.location.href = `${API_URL}/oauth2/authorization/keycloak`;
+};
+
+export const fetchCurrentUser = async (): Promise<CurrentUser> => {
+  const { data } = await apiClient.get<CurrentUser>('/bff/me');
+  return data;
 };
 
 export const logoutFromBff = async () => {

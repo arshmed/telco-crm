@@ -1,8 +1,24 @@
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { useAuth } from "../../context/AuthContext";
+import { PageLoader } from "../auth/PageLoader";
 
 export function AppLayout() {
+  const { currentUser, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <PageLoader />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />

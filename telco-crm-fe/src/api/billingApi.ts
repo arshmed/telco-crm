@@ -91,4 +91,19 @@ export const billingApi = {
     const { data } = await apiClient.get<InvoiceStats>('/api/v1/invoices/stats');
     return data;
   },
+
+  downloadInvoicePdf: async (id: string, invoiceNumber: string): Promise<void> => {
+    const response = await apiClient.get(`/api/v1/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${invoiceNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
 };

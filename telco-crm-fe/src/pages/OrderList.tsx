@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listOrders, OrderResponse, Page, cancelOrder } from "../api/orderApi";
 import { formatDateTime } from "../utils/dateUtils";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { ROLES } from "../constants/roles";
 
 const STATUS_CHIPS = [
   { key: "all", label: "Tümü" },
@@ -12,6 +15,9 @@ const STATUS_CHIPS = [
 ];
 
 export default function OrderList() {
+  const { hasAnyRole } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const canCreateOrder = hasAnyRole([ROLES.CALL_CENTER_AGENT, ROLES.FIELD_DEALER]);
   const [data, setData] = useState<Page<OrderResponse> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +79,9 @@ export default function OrderList() {
     try {
       await cancelOrder(orderId, reason);
       fetchOrders();
+      showSuccess("Sipariş başarıyla iptal edildi.");
     } catch {
-      alert("Sipariş iptal edilemedi.");
+      showError("Sipariş iptal edilemedi.");
     }
   };
 
@@ -82,10 +89,12 @@ export default function OrderList() {
     <div className="max-w-[1440px] mx-auto flex flex-col gap-stack-lg">
       <div className="flex items-center justify-between">
         <h2 className="font-h1 text-on-background">Siparişler</h2>
-        <Link to="/sales/new" className="bg-primary text-on-primary font-label-md px-gutter py-2 rounded flex items-center gap-2 hover:bg-primary/90 transition-colors">
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          Yeni Sipariş
-        </Link>
+        {canCreateOrder && (
+          <Link to="/sales/new" className="bg-primary text-on-primary font-label-md px-gutter py-2 rounded flex items-center gap-2 hover:bg-primary/90 transition-colors">
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Yeni Sipariş
+          </Link>
+        )}
       </div>
 
       {/* Status Chips */}

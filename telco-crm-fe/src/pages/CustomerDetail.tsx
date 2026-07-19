@@ -4,9 +4,16 @@ import clsx from "clsx";
 import { getCustomerById, CustomerResponse, updateCustomer, approveKyc, rejectKyc, deleteCustomer, uploadDocument, getDocumentTypes, DocumentTypeOption } from "../api/customerApi";
 import { listOrders, OrderResponse } from "../api/orderApi";
 import { formatDateTime } from "../utils/dateUtils";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { ROLES } from "../constants/roles";
 
 export default function CustomerDetail() {
-  const { id } = useParams<{ id: string }>(); 
+  const { hasAnyRole } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const canReviewKyc = hasAnyRole([ROLES.CALL_CENTER_AGENT, ROLES.FIELD_DEALER]);
+  const canCreateOrder = hasAnyRole([ROLES.CALL_CENTER_AGENT, ROLES.FIELD_DEALER]);
+  const { id } = useParams<{ id: string }>();
   const [customer, setCustomer] = useState<CustomerResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +53,9 @@ export default function CustomerDetail() {
     try {
       const updated = await approveKyc(id);
       setCustomer(updated);
+      showSuccess("KYC başarıyla onaylandı.");
     } catch {
-      alert("KYC onaylanırken bir hata oluştu.");
+      showError("KYC onaylanırken bir hata oluştu.");
     }
   };
 
@@ -56,8 +64,9 @@ export default function CustomerDetail() {
     try {
       const updated = await rejectKyc(id);
       setCustomer(updated);
+      showSuccess("KYC reddedildi.");
     } catch {
-      alert("KYC reddedilirken bir hata oluştu.");
+      showError("KYC reddedilirken bir hata oluştu.");
     }
   };
 
@@ -78,8 +87,9 @@ export default function CustomerDetail() {
       });
       setCustomer(updated);
       setIsEditing(false);
+      showSuccess("Müşteri bilgileri başarıyla güncellendi.");
     } catch {
-      alert("Müşteri güncellenirken bir hata oluştu.");
+      showError("Müşteri güncellenirken bir hata oluştu.");
     } finally {
       setSaving(false);
     }
@@ -92,7 +102,7 @@ export default function CustomerDetail() {
       await deleteCustomer(id);
       window.location.href = '/customers';
     } catch {
-      alert("Müşteri silinirken bir hata oluştu.");
+      showError("Müşteri silinirken bir hata oluştu.");
     } finally {
       setDeleting(false);
     }
@@ -107,8 +117,9 @@ export default function CustomerDetail() {
       setIsUploadModalOpen(false);
       setUploadFileRef('');
       setUploadType('ID_CARD');
+      showSuccess("Belge başarıyla yüklendi.");
     } catch {
-      alert("Belge yüklenirken bir hata oluştu.");
+      showError("Belge yüklenirken bir hata oluştu.");
     } finally {
       setUploading(false);
     }
@@ -254,7 +265,7 @@ export default function CustomerDetail() {
                 <span className="material-symbols-outlined text-[18px]">edit</span>
                 Düzenle
               </button>
-              {customer.status === 'PENDING' && (
+              {customer.status === 'PENDING' && canReviewKyc && (
                 <>
                   <button onClick={handleApproveKyc} className="h-10 px-4 flex items-center justify-center gap-4 bg-success text-on-primary rounded font-label-md hover:bg-success/90 transition-colors">
                     <span className="material-symbols-outlined text-[18px]">check_circle</span>
@@ -266,10 +277,12 @@ export default function CustomerDetail() {
                   </button>
                 </>
               )}
-              <Link to={`/sales/new?customer=${id}`} className="flex-1 sm:flex-none h-10 px-4 flex items-center justify-center gap-2 border-none rounded bg-primary text-surface font-label-md hover:bg-[#0033b3] transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                Yeni İşlem
-              </Link>
+              {canCreateOrder && (
+                <Link to={`/sales/new?customer=${id}`} className="flex-1 sm:flex-none h-10 px-4 flex items-center justify-center gap-2 border-none rounded bg-primary text-surface font-label-md hover:bg-[#0033b3] transition-colors shadow-sm">
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Yeni İşlem
+                </Link>
+              )}
               <button onClick={() => setIsDeleteModalOpen(true)} className="flex-1 sm:flex-none h-10 px-4 flex items-center justify-center gap-2 border border-danger/20 rounded bg-surface text-danger font-label-md hover:bg-danger-bg transition-colors">
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 Sil

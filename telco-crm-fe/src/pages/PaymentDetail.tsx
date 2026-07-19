@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import clsx from "clsx";
 import { getPaymentById, refundPayment, PaymentResponse } from "../api/paymentApi";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { ROLES } from "../constants/roles";
 
 const STATUS_CLASSES: Record<string, string> = {
   COMPLETED: "bg-success-bg text-success",
@@ -11,6 +14,9 @@ const STATUS_CLASSES: Record<string, string> = {
 };
 
 export default function PaymentDetail() {
+  const { hasAnyRole } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const canRefund = hasAnyRole([ROLES.BILLING_OPERATOR]);
   const { id } = useParams<{ id: string }>();
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,8 +44,9 @@ export default function PaymentDetail() {
       setRefunding(true);
       const data = await refundPayment(id, { reason: "Müşteri talebi" });
       setPayment(data);
+      showSuccess("Ödeme başarıyla iade edildi.");
     } catch (err) {
-      alert("İade işlemi başarısız oldu.");
+      showError("İade işlemi başarısız oldu.");
     } finally {
       setRefunding(false);
     }
@@ -89,7 +96,7 @@ export default function PaymentDetail() {
           </div>
         </div>
         <div className="flex-shrink-0">
-          {payment.status === 'COMPLETED' && (
+          {payment.status === 'COMPLETED' && canRefund && (
             <button 
               onClick={handleRefund}
               disabled={refunding}

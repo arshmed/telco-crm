@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { billingApi, InvoiceResponse, BillCycleResponse } from '../api/billingApi';
 import { formatDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../constants/roles';
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Taslak',
@@ -23,6 +25,8 @@ function formatCurrency(amount: number) {
 }
 
 export default function Billing() {
+  const { hasRole } = useAuth();
+  const canTriggerBillRun = hasRole(ROLES.BILLING_OPERATOR);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [cycles, setCycles] = useState<BillCycleResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,13 +87,9 @@ export default function Billing() {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-h1 text-on-surface">Fatura Yönetimi</h2>
-          <p className="font-body-md text-on-surface-variant mt-1">Faturaları görüntüleyin, fatura kesimi başlatın.</p>
-        </div>
-        <div className="flex gap-3">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-info-bg text-info font-label-sm border border-info/20">
-            <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
-            ADMIN_ACCESS
-          </span>
+          <p className="font-body-md text-on-surface-variant mt-1">
+            {canTriggerBillRun ? 'Faturaları görüntüleyin, fatura kesimi başlatın.' : 'Faturalarınızı görüntüleyin.'}
+          </p>
         </div>
       </div>
 
@@ -117,6 +117,7 @@ export default function Billing() {
       </div>
 
       {/* Bill Run Action */}
+      {canTriggerBillRun && (
       <div className="bg-surface border border-outline-variant rounded p-5 shadow-sm">
         <h3 className="font-h3 text-on-surface mb-4 flex items-center gap-2">
           <span className="material-symbols-outlined text-[20px] text-primary">play_circle</span>
@@ -156,6 +157,7 @@ export default function Billing() {
           </p>
         )}
       </div>
+      )}
 
       {/* Invoice History Table */}
       <div className="bg-surface border border-outline-variant rounded overflow-hidden flex flex-col">

@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
+import { useAuth } from "../context/AuthContext";
+import { ROLES } from "../constants/roles";
 
 export default function TicketDetail() {
+  const { hasRole } = useAuth();
+  const canManageTicket = hasRole(ROLES.CALL_CENTER_AGENT);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -245,17 +249,19 @@ export default function TicketDetail() {
             <div className="font-body-sm text-on-surface-variant mb-6 pb-4 border-b border-surface-variant">
               Saha ekibi ataması bekleniyor. Müşteri yanıtı alındı.
             </div>
-            <div className="flex flex-col gap-2">
-              <button className="w-full bg-primary hover:bg-[#0035be] text-on-primary font-label-md py-2 rounded transition-colors cursor-pointer">
-                Üstlen
-              </button>
-              <button className="w-full bg-surface border border-primary text-primary hover:bg-primary-fixed font-label-md py-2 rounded transition-colors cursor-pointer">
-                Saha Ekibine Ata
-              </button>
-              <button className="w-full mt-2 text-secondary hover:text-on-surface font-label-sm py-1 transition-colors cursor-pointer text-center">
-                Çözüldü Olarak Kapat
-              </button>
-            </div>
+            {canManageTicket && (
+              <div className="flex flex-col gap-2">
+                <button className="w-full bg-primary hover:bg-[#0035be] text-on-primary font-label-md py-2 rounded transition-colors cursor-pointer">
+                  Üstlen
+                </button>
+                <button className="w-full bg-surface border border-primary text-primary hover:bg-primary-fixed font-label-md py-2 rounded transition-colors cursor-pointer">
+                  Saha Ekibine Ata
+                </button>
+                <button className="w-full mt-2 text-secondary hover:text-on-surface font-label-sm py-1 transition-colors cursor-pointer text-center">
+                  Çözüldü Olarak Kapat
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 2. SLA Card */}

@@ -46,10 +46,10 @@ Her servisin kendi Postgres veritabanı vardır (bkz. Servis Yapısı tablosu); 
 
 | Servis | Port | Sorumluluk | README |
 |---|---|---|---|
-| `discovery-server` | 8761 | Eureka servis kayıt/keşif | — |
+| `discovery-server` | 8761 | Eureka servis kayıt/keşif | [discovery-server/README.md](discovery-server/README.md) |
 | `config-server` | 8888 | Merkezi konfigürasyon (native profil, `configs/`) | [config-server/README.md](config-server/README.md) |
-| `api-gateway` (`gateway-server`) | 8080 | JWT doğrulama, rate limiting, servislere routing | — |
-| `bff-server` | 9011 | Frontend için oturum bazlı OAuth2 login, gateway'e TokenRelay | — |
+| `api-gateway` (`gateway-server`) | 8080 | JWT doğrulama, rate limiting, servislere routing |[gateway-server/README.md](api-gateway/README.md)  |
+| `bff-server` | 9011 | Frontend için oturum bazlı OAuth2 login, gateway'e TokenRelay | [bff-server/README.md](bff-server/README.md) |
 | `identity-service` | 9001 | User/Role/Permission CRUD + Keycloak senkronizasyonu (best-effort) | [identity-service/README.md](identity-service/README.md) |
 | `customer-service` | 9002 | Müşteri, adres, belge, KYC yönetimi | [customer-service/README.md](customer-service/README.md) |
 | `product-catalog-service` | 9003 | Tarife/ek paket kataloğu (ürün tanımlarının tek kaynağı) | [product-catalog-service/README.md](product-catalog-service/README.md) |
@@ -60,9 +60,8 @@ Her servisin kendi Postgres veritabanı vardır (bkz. Servis Yapısı tablosu); 
 | `payment-service` | 9008 | Ödeme tahsilatı, retry, iade (mock PSP) | [payment-service/README.md](payment-service/README.md) |
 | `notification-service` | 9009 | Platform genelindeki olayları e-posta/SMS'e çevirir | [notification-service/README.md](notification-service/README.md) |
 | `ticket-service` | 9010 | Destek talepleri + SLA ihlali tarayıcısı | [ticket-service/README.md](ticket-service/README.md) |
-| `telco-crm-fe` | 5173 | React tabanlı CRM arayüzü | — |
+| `telco-crm-fe` | 5173 | React tabanlı CRM arayüzü | [telco-crm-fe/README.md](telco-crm-fe/README.md) |
 
-> `api-gateway` ve `bff-server` için ayrı README henüz yazılmadı.
 
 ---
 
@@ -73,9 +72,9 @@ Her servisin kendi Postgres veritabanı vardır (bkz. Servis Yapısı tablosu); 
 - Docker + Docker Compose
 - Node.js 18+ (frontend için)
 
-### 1. Depoyu klonlayın
+### 1. Repoyu klonlayın
 ```bash
-git clone <repo-url>
+git clone <git@github.com:arshmed/telco-crm.git>
 cd telco-crm
 ```
 

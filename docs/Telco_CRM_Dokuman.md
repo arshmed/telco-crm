@@ -24,8 +24,7 @@
 10. [Event-Driven Mimarisi & Kafka Akışları](#10-event-driven-mimarisi--kafka-akışları)
 11. [DevOps, Deploy & Altyapı](#11-devops-deploy--altyapı)
 12. [Test Stratejisi & Kalite Güvencesi](#12-test-stratejisi--kalite-güvencesi)
-13. [Teknik Borç & İyileştirme Yol Haritası](#13-teknik-borç--iyileştirme-yol-haritası)
-14. [Proje Planı & Jira İş Takibi](#14-proje-planı--jira-i̇ş-takibi)
+13. [Proje Planı & Jira İş Takibi](#13-proje-planı--jira-i̇ş-takibi)
 
 ---
 
@@ -1568,74 +1567,21 @@ Hata Yönetimi:
 
 ---
 
-# 13. Teknik Borç & İyileştirme Yol Haritası
+# 13. Proje Planı & Jira İş Takibi
 
-## 13.1 Mevcut Teknik Borç
-
-| # | Sorun | Öncelik | Etki |
-|---|---|---|---|
-| 1 | Erişim kontrolü boşlukları (PUT/DELETE customers eksik guard) | Yüksek | Güvenlik |
-| 2 | Cache invalidation eksik (KYC approve/reject → Redis 10dk staleness) | Yüksek | Veri tutarlılığı |
-| 3 | Hardcoded encryption key (dev config fallback) | Yüksek | Güvenlik |
-| 4 | Çift şablon sistemi (DB + Thymeleaf manuel senkronizasyon) | Orta | Bakım |
-| 5 | PUSH kanalı çalışmıyor, SMS sadece simülasyon | Orta | Fonksiyonellik |
-| 6 | DELETE endpoint'leri event yayınlamıyor | Orta | Tutarlılık |
-| 7 | Aggregation endpoint tek transaction'da tüm kayıtlar | Orta | Performans |
-| 8 | SLA süreleri placeholder (ponytail comment'leri) | Düşük | Doğruluk |
-| 9 | MinIO yapılandırılmış ama kullanılmıyor | Düşük | Kaynak |
-| 10 | Frontend testleri hiç yok | Yüksek | Kalite |
-
-## 13.2 İyileştirme Yol Haritası
-
-### Kısa Vadeli (0-3 Ay)
-
-| Öncelik | Görev | Sorumlu |
-|---|---|---|
-| P0 | Erişim kontrolü boşluklarını kapat | Backend |
-| P0 | Encryption key management (Vault/Secret Manager) | DevOps |
-| P0 | Cache invalidation mekanizması ekle | Backend |
-| P1 | Frontend unit testleri yaz (Jest) | Frontend |
-| P1 | DELETE endpoint'lerinde event publishing | Backend |
-| P1 | SLA sürelerini gerçek değerlerle değiştir | Backend |
-
-### Orta Vadeli (3-6 Ay)
-
-| Öncelik | Görev | Sorumlu |
-|---|---|---|
-| P1 | Testcontainers entegrasyon testleri | QA |
-| P1 | Load testleri (JMeter/Gatling) | QA |
-| P2 | Tek şablon sistemine geç (DB-based) | Backend |
-| P2 | Pagination ile aggregation endpoint | Backend |
-| P2 | Frontend E2E testleri (Cypress/Playwright) | Frontend |
-| P2 | Prometheus + Grafana alerting kurulumu | DevOps |
-
-### Uzun Vadeli (6-12 Ay)
-
-| Öncelik | Görev | Sorumlu |
-|---|---|---|
-| P1 | Gerçek SMS/Email provider entegrasyonu | Backend |
-| P2 | MinIO ile belge depolama | Backend |
-| P2 | PUSH notification entegrasyonu | Backend |
-| P2 | Self-servis müşteri portalı | Frontend |
-| P3 | AI/ML tabanlı churn tahmini | Data |
-
----
-
-# 14. Proje Planı & Jira İş Takibi
-
-## 14.1 Kanban Pano
+## 13.1 Kanban Pano
 
 telco-crm Jira alanında güncel iş durumu: To Do, In Progress, In Review, Done kolonlarında servis bazlı etiketlenmiş kartlar.
 
 ![Jira Kanban Panosu](assets/jira/jira-kanban-board.png)
 
-## 14.2 Epic Zaman Çizelgesi
+## 13.2 Epic Zaman Çizelgesi
 
 Servis bazlı epic'ler ve ilerleme durumları (Infrastructure & Platform, Security, Payment, Identity, Order, Customer, Product Catalog, Usage, Subscription, Notification, Ticket, Gateway & BFF, Platform/Cross-Cutting, Billing, Config Server & Discovery Server).
 
 ![Jira Epic Zaman Çizelgesi](assets/jira/jira-timeline-epics.png)
 
-## 14.3 Confluence Dokümantasyonu
+## 13.3 Confluence Dokümantasyonu
 
 Servis bazlı teknik dokümanlar Confluence'ta tutulur (Product-Catalog-Service, Customer Service, Order Service vb.); bu dokümanların bir kısmı `docs/confluence/` altında da mevcuttur.
 

@@ -40,3 +40,7 @@ build/
 ### Mac OS ###
 .DS_Store
 
+### Local-only docs ###
+order-service/ORDER_SERVICE_DEVELOPMENT.md
+payment-service/PAYMENT_SERVICE_DEVELOPMENT.md
+identity-service/IDENTITY_SERVICE_DEVELOPMENT.md

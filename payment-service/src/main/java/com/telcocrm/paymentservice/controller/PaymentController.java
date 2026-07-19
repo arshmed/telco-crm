@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -28,8 +29,10 @@ public class PaymentController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<PaymentResponse>> getAllPayments(Pageable pageable) {
-        Page<PaymentResponse> response = paymentService.getAllPayments(pageable);
+    public ResponseEntity<Page<PaymentResponse>> getAllPayments(
+            @RequestParam(required = false) UUID customerId,
+            Pageable pageable) {
+        Page<PaymentResponse> response = paymentService.getAllPayments(customerId, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -40,6 +43,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/refund")
+    @PreAuthorize("hasAuthority('BILLING_OPERATOR')")
     public ResponseEntity<PaymentResponse> refundPayment(
             @PathVariable UUID id,
             @Valid @RequestBody RefundRequest request) {

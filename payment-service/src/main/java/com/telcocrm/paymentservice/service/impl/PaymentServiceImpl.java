@@ -50,8 +50,12 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PaymentResponse> getAllPayments(Pageable pageable) {
-        return paymentRepository.findAll(pageable).map(paymentMapper::toResponse);
+    public Page<PaymentResponse> getAllPayments(UUID customerId, Pageable pageable) {
+        UUID effectiveCustomerId = customerAccessGuard.effectiveCustomerFilter(customerId);
+        Page<Payment> payments = (effectiveCustomerId != null)
+                ? paymentRepository.findByCustomerId(effectiveCustomerId, pageable)
+                : paymentRepository.findAll(pageable);
+        return payments.map(paymentMapper::toResponse);
     }
 
     @Override

@@ -123,6 +123,8 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionResponse changeTariff(UUID id, ChangeTariffRequest request) {
         Subscription subscription = getSubscriptionEntity(id);
+        customerAccessGuard.assertOwnResource(subscription.getCustomerId(),
+                () -> new SubscriptionNotFoundException("Subscription not found with id: " + id));
         if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
             throw new InvalidStateTransitionException(
                     "Cannot change tariff for subscription in status: " + subscription.getStatus());
@@ -149,6 +151,8 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionAddonResponse addAddon(UUID id, AddAddonRequest request) {
         Subscription subscription = getSubscriptionEntity(id);
+        customerAccessGuard.assertOwnResource(subscription.getCustomerId(),
+                () -> new SubscriptionNotFoundException("Subscription not found with id: " + id));
         if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
             throw new InvalidStateTransitionException(
                     "Cannot add addon to subscription in status: " + subscription.getStatus());

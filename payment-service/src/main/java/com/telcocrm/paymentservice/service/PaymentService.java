@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface PaymentService {
 
-    Page<PaymentResponse> getAllPayments(Pageable pageable);
+    Page<PaymentResponse> getAllPayments(UUID customerId, Pageable pageable);
 
     PaymentResponse getPaymentById(UUID paymentId);
 

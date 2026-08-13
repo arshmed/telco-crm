@@ -1,9 +1,6 @@
 package com.telcocrm.notificationservice.service;
 
-import com.telcocrm.notificationservice.dto.NotificationRequest;
-import com.telcocrm.notificationservice.dto.NotificationResponse;
-import com.telcocrm.notificationservice.enums.NotificationChannel;
-import com.telcocrm.notificationservice.enums.NotificationStatus;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.telcocrm.notificationservice.event.NotificationDispatchedEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,5 +46,35 @@ class OutboxServiceTest {
         assertThat(eventCaptor.getValue().getAggregateType()).isEqualTo("NOTIFICATION");
         assertThat(eventCaptor.getValue().getTopic()).isEqualTo("notification-dispatched-topic");
         assertThat(eventCaptor.getValue().getPayload()).isEqualTo("{\"status\":\"SENT\"}");
+    }
+
+    @Test
+    void shouldThrowRuntimeExceptionWhenSerializationFails() throws Exception {
+        var event = NotificationDispatchedEvent.of(
+                UUID.randomUUID(), UUID.randomUUID(), "TEST", "EMAIL", "SENT");
+
+        when(objectMapper.writeValueAsString(event)).thenThrow(new JsonProcessingException("boom") {});
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                outboxService.saveEvent("NOTIFICATION", "agg-123", "notification-dispatched-topic", event))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Outbox persistence failed");
+
+        verify(outboxRepository, never()).save(any());
+    }
+
+    @Test
+    void shouldThrowRuntimeExceptionWhenPersistenceFails() throws Exception {
+        var event = NotificationDispatchedEvent.of(
+                UUID.randomUUID(), UUID.randomUUID(), "TEST", "EMAIL", "SENT");
+
+        when(objectMapper.writeValueAsString(event)).thenReturn("{\"status\":\"SENT\"}");
+        doThrow(new org.springframework.dao.DataAccessException("db down") {})
+                .when(outboxRepository).save(any(com.telcocrm.notificationservice.entity.OutboxEvent.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                outboxService.saveEvent("NOTIFICATION", "agg-123", "notification-dispatched-topic", event))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Outbox persistence failed");
     }
 }

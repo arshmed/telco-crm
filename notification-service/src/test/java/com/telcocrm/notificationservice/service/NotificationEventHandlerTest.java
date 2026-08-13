@@ -68,4 +68,47 @@ class NotificationEventHandlerTest {
         eventHandler.ticketResolvedEvent().accept(event);
         verify(dispatcher).dispatchFromEvent("TICKET_RESOLVED", customerId, event);
     }
+
+    @Test
+    void shouldHandleOrderCreatedEvent() {
+        var event = Map.<String, Object>of("customerId", UUID.randomUUID().toString());
+        eventHandler.orderCreatedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent(eq("ORDER_CREATED"), any(), any());
+    }
+
+    @Test
+    void shouldHandleOrderConfirmedEvent() {
+        var event = Map.<String, Object>of("customerId", UUID.randomUUID().toString());
+        eventHandler.orderConfirmedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent(eq("ORDER_CONFIRMED"), any(), any());
+    }
+
+    @Test
+    void shouldHandleOrderCancelledEvent() {
+        var event = Map.<String, Object>of("customerId", UUID.randomUUID().toString());
+        eventHandler.orderCancelledEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent(eq("ORDER_CANCELLED"), any(), any());
+    }
+
+    @Test
+    void shouldHandleQuotaThresholdReachedEvent() {
+        var event = Map.<String, Object>of("customerId", UUID.randomUUID().toString());
+        eventHandler.quotaThresholdReachedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent(eq("QUOTA_THRESHOLD_REACHED"), any(), any());
+    }
+
+    @Test
+    void shouldHandleQuotaExceededEvent() {
+        var event = Map.<String, Object>of("customerId", UUID.randomUUID().toString());
+        eventHandler.quotaExceededEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent(eq("QUOTA_EXCEEDED"), any(), any());
+    }
+
+    @Test
+    void shouldHandleEventWithUuidCustomerId() {
+        UUID customerId = UUID.randomUUID();
+        var event = Map.<String, Object>of("customerId", customerId);
+        eventHandler.customerUpdatedEvent().accept(event);
+        verify(dispatcher).dispatchFromEvent("CUSTOMER_UPDATED", customerId, event);
+    }
 }

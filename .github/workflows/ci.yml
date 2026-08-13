@@ -52,7 +52,7 @@ jobs:
           cache: maven
 
       - name: Build & Test
-        run: mvn clean verify -B -DskipITs -Dtest='!*ApplicationTests'
+        run: mvn clean verify -B -DskipITs -Dtest='!*ApplicationTests' -Dsurefire.failIfNoSpecifiedTests=false
 
       - name: Upload JaCoCo Reports
         if: always()
